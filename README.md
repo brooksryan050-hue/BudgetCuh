@@ -1,4 +1,4 @@
-# Wallet
+# BudgetCuh
 
 A personal budgeting and savings app built with Expo Router and React Native. Track income and expenses, set category budgets, work toward savings goals, and stay motivated with a lightweight gamification layer — levels, badges, and weekly challenges.
 
