@@ -61,6 +61,10 @@ export interface Transaction {
   paymentMethod: PaymentMethod;
   isRecurring: boolean;
   recurringInterval?: RecurringInterval;
+  /** Which account this transaction affects. Optional so pre-existing transactions
+   * (logged before per-transaction account selection existed) keep working — those
+   * fall back to the primary account for balance purposes. */
+  accountId?: ID;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -115,6 +119,14 @@ export interface ChallengeTemplate {
   durationDays: number;
   points: number;
   badgeKey?: BadgeKey;
+  /**
+   * 'automatic': progress is derived from real transactions/income — used whenever
+   * the target is something the app can actually observe in logged data.
+   * 'manual': the target has no distinguishing signature in transaction data (e.g.
+   * "cooked at home" vs. "didn't spend that day" look identical), so progress can
+   * only move via an explicit daily check-in.
+   */
+  trackingMode: 'automatic' | 'manual';
 }
 
 export interface ChallengeInstance {

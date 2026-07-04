@@ -47,6 +47,7 @@ export default function TransactionFormScreen() {
   const isEditing = Boolean(params.id);
 
   const transactions = useBudgetStore((s) => s.transactions);
+  const accounts = useBudgetStore((s) => s.accounts);
   const addTransaction = useBudgetStore((s) => s.addTransaction);
   const updateTransaction = useBudgetStore((s) => s.updateTransaction);
   const deleteTransaction = useBudgetStore((s) => s.deleteTransaction);
@@ -59,6 +60,7 @@ export default function TransactionFormScreen() {
   const [type, setType] = useState<TransactionType>(existing?.type ?? 'expense');
   const [amount, setAmount] = useState(existing ? `${existing.amount}` : '');
   const [categoryId, setCategoryId] = useState(existing?.categoryId ?? 'cat-groceries');
+  const [accountId, setAccountId] = useState(existing?.accountId ?? accounts[0]?.id);
   const [date, setDate] = useState(existing?.date ?? toISODate(new Date()));
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(existing?.paymentMethod ?? 'card');
@@ -90,6 +92,7 @@ export default function TransactionFormScreen() {
       paymentMethod,
       isRecurring,
       recurringInterval: isRecurring ? recurringInterval : undefined,
+      accountId,
     };
 
     if (isEditing && existing) {
@@ -212,6 +215,25 @@ export default function TransactionFormScreen() {
                 keyboardType="decimal-pad"
               />
             </View>
+
+            {accounts.length > 1 ? (
+              <View style={styles.field}>
+                <ThemedText type="smallBold">Account</ThemedText>
+                <View style={styles.pillRow}>
+                  {accounts.map((account) => (
+                    <Pill
+                      key={account.id}
+                      label={account.name}
+                      selected={accountId === account.id}
+                      onPress={() => {
+                        tap();
+                        setAccountId(account.id);
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
             {type === 'expense' ? (
               <View style={styles.field}>

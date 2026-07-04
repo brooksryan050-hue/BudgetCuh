@@ -13,14 +13,32 @@ import { ProgressRing } from '@/components/ui/progress-ring';
 import { ConfettiBurst } from '@/components/ui/confetti-burst';
 import { getChallengeTemplateById } from '@/data/challenge-templates';
 import { getBadgeCatalogEntry } from '@/data/badges';
+import { getCategoryById } from '@/data/categories';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { computeChallengeProgress } from '@/lib/challenges';
 import { fromISODate, formatFullDate, toISODate } from '@/lib/dates';
 import { playChallengeCompleteSound } from '@/lib/sound';
 import { useTheme } from '@/hooks/use-theme';
 import { useBudgetStore } from '@/store/budget-store';
+import type { ChallengeProgress, ChallengeTemplate } from '@/types';
 
 const DIFFICULTY_COLOR = { easy: '#1FAA59', medium: '#F5A623', hard: '#E5484D' } as const;
+
+function automaticProgressHint(template: ChallengeTemplate, progress: ChallengeProgress): string {
+  const categoryName = template.categoryId ? getCategoryById(template.categoryId).name.toLowerCase() : '';
+  switch (template.targetType) {
+    case 'save_amount':
+      return `$${Math.max(0, Math.round(progress.progressValue))} saved so far toward $${template.targetValue}.`;
+    case 'no_spend_category':
+      return `${progress.progressValue} of ${template.targetValue} days with no ${categoryName} spending so far.`;
+    case 'reduce_category_percent':
+      return `${Math.round(progress.progressValue)}% reduction in ${categoryName} spend so far — target is ${template.targetValue}%.`;
+    case 'streak_days':
+      return `${progress.progressValue} of ${template.targetValue} days under your daily limit so far.`;
+    default:
+      return 'Keep going — your progress updates automatically as you log transactions.';
+  }
+}
 
 export default function ChallengeDetailScreen() {
   const theme = useTheme();
@@ -30,6 +48,7 @@ export default function ChallengeDetailScreen() {
 
   const challenges = useBudgetStore((s) => s.challenges);
   const transactions = useBudgetStore((s) => s.transactions);
+  const profile = useBudgetStore((s) => s.profile);
   const claimChallengeReward = useBudgetStore((s) => s.claimChallengeReward);
   const recordChallengeCheckIn = useBudgetStore((s) => s.recordChallengeCheckIn);
 
@@ -46,15 +65,10 @@ export default function ChallengeDetailScreen() {
     );
   }
 
-  const progress = computeChallengeProgress(instance, template, transactions, referenceDate);
+  const progress = computeChallengeProgress(instance, template, transactions, profile, referenceDate);
   const badge = template.badgeKey ? getBadgeCatalogEntry(template.badgeKey) : null;
   const canClaim = instance.status === 'active' && progress.isComplete;
   const isCompleted = instance.status === 'completed';
-
-  // These target types can't be derived from transaction data at all (e.g. "cook at
-  // home 4 times" has no natural spending signature) — progress only ever moves via a
-  // manual check-in, so this screen needs to actually expose that action.
-  const isCheckInType = template.targetType === 'streak_days' || template.targetType === 'count_actions';
   const todayISO = toISODate(referenceDate);
   const alreadyCheckedInToday = instance.checkIns.includes(todayISO);
 
@@ -139,7 +153,7 @@ export default function ChallengeDetailScreen() {
                 Claim reward
               </ThemedText>
             </Pressable>
-          ) : isCheckInType ? (
+          ) : template.trackingMode === 'manual' ? (
             <View style={styles.checkInSection}>
               <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
                 {progress.progressValue} of {template.targetValue} check-ins logged
@@ -160,7 +174,7 @@ export default function ChallengeDetailScreen() {
             </View>
           ) : (
             <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-              Keep going — your progress updates automatically as you log transactions.
+              {automaticProgressHint(template, progress)}
             </ThemedText>
           )}
         </ScrollView>

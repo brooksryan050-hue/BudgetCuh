@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
@@ -118,60 +118,64 @@ export function AccountBalanceCard() {
       </View>
 
       <Modal visible={editingAccountId !== null} transparent animationType="fade" onRequestClose={() => setEditingAccountId(null)}>
-        <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setEditingAccountId(null)}>
-          <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
-            <ThemedText type="subtitle">Edit balance</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.sheetHint}>
-              There&apos;s no bank connection, so set this to match your real balance whenever you like.
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-              value={balanceInput}
-              onChangeText={setBalanceInput}
-              keyboardType="numbers-and-punctuation"
-              autoFocus
-            />
-            <Pressable style={[styles.primaryButton, { backgroundColor: theme.brand }]} onPress={saveBalance}>
-              <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
-                Save
+        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setEditingAccountId(null)}>
+            <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
+              <ThemedText type="subtitle">Edit balance</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.sheetHint}>
+                There&apos;s no bank connection, so set this to match your real balance whenever you like.
               </ThemedText>
+              <TextInput
+                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                value={balanceInput}
+                onChangeText={setBalanceInput}
+                keyboardType="numbers-and-punctuation"
+                autoFocus
+              />
+              <Pressable style={[styles.primaryButton, { backgroundColor: theme.brand }]} onPress={saveBalance}>
+                <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
+                  Save
+                </ThemedText>
+              </Pressable>
             </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>
-        <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setAddVisible(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
-            <ThemedText type="subtitle">New account</ThemedText>
-            <ThemedText type="smallBold" style={styles.fieldLabel}>
-              Name
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-              placeholder="Savings account"
-              placeholderTextColor={theme.textSecondary}
-              value={newName}
-              onChangeText={setNewName}
-            />
-            <ThemedText type="smallBold" style={styles.fieldLabel}>
-              Starting balance
-            </ThemedText>
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-              placeholder="0.00"
-              placeholderTextColor={theme.textSecondary}
-              value={newBalance}
-              onChangeText={setNewBalance}
-              keyboardType="numbers-and-punctuation"
-            />
-            <Pressable style={[styles.primaryButton, { backgroundColor: theme.brand }]} onPress={createAccount}>
-              <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
-                Create account
+        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setAddVisible(false)}>
+            <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
+              <ThemedText type="subtitle">New account</ThemedText>
+              <ThemedText type="smallBold" style={styles.fieldLabel}>
+                Name
               </ThemedText>
+              <TextInput
+                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                placeholder="Savings account"
+                placeholderTextColor={theme.textSecondary}
+                value={newName}
+                onChangeText={setNewName}
+              />
+              <ThemedText type="smallBold" style={styles.fieldLabel}>
+                Starting balance
+              </ThemedText>
+              <TextInput
+                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                placeholder="0.00"
+                placeholderTextColor={theme.textSecondary}
+                value={newBalance}
+                onChangeText={setNewBalance}
+                keyboardType="numbers-and-punctuation"
+              />
+              <Pressable style={[styles.primaryButton, { backgroundColor: theme.brand }]} onPress={createAccount}>
+                <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
+                  Create account
+                </ThemedText>
+              </Pressable>
             </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

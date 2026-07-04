@@ -41,6 +41,33 @@ function currentUserId(): string | undefined {
   return useAuthStore.getState().session?.user.id;
 }
 
+/** Income adds to a balance, expense subtracts — the signed contribution of one transaction. */
+function signedAmount(transaction: Pick<Transaction, 'type' | 'amount'>): number {
+  return transaction.type === 'income' ? transaction.amount : -transaction.amount;
+}
+
+/**
+ * Applies a signed delta to one account's balance — the account the transaction
+ * form says the transaction belongs to, or accounts[0] (the "Main Account" from
+ * onboarding) when accountId is missing/unrecognized, which covers transactions
+ * logged before per-transaction account selection existed. Manually editing the
+ * balance (AccountBalanceCard's "Edit balance") still fully overwrites it — this
+ * only nudges it incrementally as new transactions are logged, so a manual
+ * reconciliation remains the source of truth until the next transaction.
+ */
+function resolveAccountId(accounts: Account[], accountId: ID | undefined): ID | undefined {
+  if (accountId && accounts.some((a) => a.id === accountId)) return accountId;
+  return accounts[0]?.id;
+}
+
+function applyBalanceDelta(accounts: Account[], accountId: ID | undefined, delta: number, now: string): Account[] {
+  if (accounts.length === 0 || delta === 0) return accounts;
+  const targetId = resolveAccountId(accounts, accountId);
+  return accounts.map((account) =>
+    account.id === targetId ? { ...account, balance: account.balance + delta, updatedAt: now } : account
+  );
+}
+
 interface BudgetState {
   hasHydrated: boolean;
   hasCompletedOnboarding: boolean;
@@ -99,6 +126,7 @@ interface BudgetState {
   _enqueueSync: (entity: SyncEntity, opType: SyncOpType, recordId: string, payload?: Record<string, unknown>) => void;
   _attemptImmediateFlush: () => void;
   _enqueueProfilePointsSync: () => void;
+  _enqueueAccountSync: (accountId: ID | undefined) => void;
   _enqueueBadgeSync: (badgeKey: string) => void;
 }
 
@@ -210,29 +238,64 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
         const now = new Date().toISOString();
         const id = generateId('txn');
         const transaction: Transaction = { ...input, id, createdAt: now, updatedAt: now };
-        set((state) => ({ transactions: [transaction, ...state.transactions] }));
+        set((state) => ({
+          transactions: [transaction, ...state.transactions],
+          accounts: applyBalanceDelta(state.accounts, transaction.accountId, signedAmount(transaction), now),
+        }));
         get()._runBadgeEvaluation(new Date());
         const userId = currentUserId();
-        if (userId) get()._enqueueSync('transactions', 'upsert', id, transactionToRow(transaction, userId));
+        if (userId) {
+          get()._enqueueSync('transactions', 'upsert', id, transactionToRow(transaction, userId));
+          get()._enqueueAccountSync(resolveAccountId(get().accounts, transaction.accountId));
+        }
         return id;
       },
 
       updateTransaction: (id, patch) => {
         const now = new Date().toISOString();
-        set((state) => ({
-          transactions: state.transactions.map((t) =>
-            t.id === id ? { ...t, ...patch, updatedAt: now } : t
-          ),
-        }));
+        const previous = get().transactions.find((t) => t.id === id);
+        let touchedAccountIds: (ID | undefined)[] = [];
+        set((state) => {
+          const transactions = state.transactions.map((t) => (t.id === id ? { ...t, ...patch, updatedAt: now } : t));
+          if (!previous) return { transactions };
+          const updated = transactions.find((t) => t.id === id)!;
+          const oldAccountId = resolveAccountId(state.accounts, previous.accountId);
+          const newAccountId = resolveAccountId(state.accounts, updated.accountId);
+          touchedAccountIds = [oldAccountId, newAccountId];
+
+          let accounts = state.accounts;
+          if (oldAccountId === newAccountId) {
+            const delta = signedAmount(updated) - signedAmount(previous);
+            accounts = applyBalanceDelta(accounts, newAccountId, delta, now);
+          } else {
+            accounts = applyBalanceDelta(accounts, oldAccountId, -signedAmount(previous), now);
+            accounts = applyBalanceDelta(accounts, newAccountId, signedAmount(updated), now);
+          }
+          return { transactions, accounts };
+        });
         const updated = get().transactions.find((t) => t.id === id);
         const userId = currentUserId();
-        if (updated && userId) get()._enqueueSync('transactions', 'upsert', id, transactionToRow(updated, userId));
+        if (updated && userId) {
+          get()._enqueueSync('transactions', 'upsert', id, transactionToRow(updated, userId));
+          new Set(touchedAccountIds).forEach((accountId) => get()._enqueueAccountSync(accountId));
+        }
       },
 
       deleteTransaction: (id) => {
-        set((state) => ({ transactions: state.transactions.filter((t) => t.id !== id) }));
+        const now = new Date().toISOString();
+        const existing = get().transactions.find((t) => t.id === id);
+        const touchedAccountId = existing ? resolveAccountId(get().accounts, existing.accountId) : undefined;
+        set((state) => ({
+          transactions: state.transactions.filter((t) => t.id !== id),
+          accounts: existing
+            ? applyBalanceDelta(state.accounts, existing.accountId, -signedAmount(existing), now)
+            : state.accounts,
+        }));
         const userId = currentUserId();
-        if (userId) get()._enqueueSync('transactions', 'delete', id);
+        if (userId) {
+          get()._enqueueSync('transactions', 'delete', id);
+          if (touchedAccountId) get()._enqueueAccountSync(touchedAccountId);
+        }
       },
 
       upsertBudget: (categoryId, monthlyLimit) => {
@@ -519,6 +582,13 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
         const badge = get().badges.find((b) => b.key === badgeKey);
         if (!userId || !badge?.earnedAt) return;
         get()._enqueueSync('user_badges', 'upsert', `${userId}:${badgeKey}`, badgeToRow(badgeKey, badge.earnedAt, userId));
+      },
+
+      _enqueueAccountSync: (accountId) => {
+        const userId = currentUserId();
+        const account = get().accounts.find((a) => a.id === accountId);
+        if (!userId || !account) return;
+        get()._enqueueSync('accounts', 'upsert', account.id, accountToRow(account, userId));
       },
   }),
   PERSISTED_KEYS,

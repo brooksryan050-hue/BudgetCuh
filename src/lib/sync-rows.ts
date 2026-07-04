@@ -23,6 +23,7 @@ export function transactionToRow(t: Transaction, userId: string) {
     payment_method: t.paymentMethod,
     is_recurring: t.isRecurring,
     recurring_interval: t.recurringInterval ?? null,
+    account_id: t.accountId ?? null,
     created_at: t.createdAt,
     updated_at: t.updatedAt,
   };

@@ -46,6 +46,7 @@ export default function ProfileScreen() {
   const [confirmResetVisible, setConfirmResetVisible] = useState(false);
   const [devModeEnabled, setDevModeEnabled] = useState(false);
   const [requestingPush, setRequestingPush] = useState(false);
+  const [pushSetupError, setPushSetupError] = useState<string | null>(null);
 
   const [badgeGridWidth, setBadgeGridWidth] = useState(0);
   const badgeColumns = badgeGridWidth > 0 ? Math.max(1, Math.floor((badgeGridWidth + BADGE_GAP) / (BADGE_MIN_WIDTH + BADGE_GAP))) : 0;
@@ -100,16 +101,21 @@ export default function ProfileScreen() {
   async function togglePushNotifications(enabled: boolean) {
     if (!enabled) {
       updateProfile({ pushNotificationsEnabled: false });
+      setPushSetupError(null);
       return;
     }
     setRequestingPush(true);
+    setPushSetupError(null);
     const token = await registerForPushNotificationsAsync();
     setRequestingPush(false);
     if (token) {
       updateProfile({ pushNotificationsEnabled: true, expoPushToken: token });
+    } else {
+      // Permission denied, running on web/simulator, or no EAS project id yet —
+      // leave the toggle off rather than claiming a state we can't deliver on, but
+      // say why instead of silently doing nothing.
+      setPushSetupError("Couldn't turn this on — check notification permissions, or ask your developer to finish push setup.");
     }
-    // Permission denied or no EAS project id yet — leave the toggle off rather than
-    // claiming a state we can't actually deliver on.
   }
 
   const earnedCount = badges.filter((b) => b.earnedAt !== null).length;
@@ -256,6 +262,11 @@ export default function ProfileScreen() {
                 </View>
                 <Switch value={profile?.pushNotificationsEnabled ?? false} pointerEvents="none" />
               </Pressable>
+              {pushSetupError ? (
+                <ThemedText type="small" themeColor="danger" style={styles.pushErrorText}>
+                  {pushSetupError}
+                </ThemedText>
+              ) : null}
             </Card>
           </View>
 
@@ -457,6 +468,9 @@ const styles = StyleSheet.create({
   notificationsCard: {
     gap: Spacing.two,
     paddingVertical: Spacing.two,
+  },
+  pushErrorText: {
+    marginTop: -Spacing.one,
   },
   settingRow: {
     flexDirection: 'row',

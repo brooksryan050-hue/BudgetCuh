@@ -12,6 +12,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     durationDays: 5,
     points: 100,
     badgeKey: 'no_spend_hero',
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-groceries-20-percent',
@@ -24,6 +25,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     durationDays: 7,
     points: 100,
     badgeKey: 'grocery_master',
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-save-50-sunday',
@@ -34,6 +36,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 50,
     durationDays: 7,
     points: 50,
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-no-online-shopping',
@@ -45,6 +48,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     categoryId: 'cat-online-shopping',
     durationDays: 7,
     points: 100,
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-review-subscription',
@@ -57,6 +61,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     durationDays: 7,
     points: 50,
     badgeKey: 'subscription_slayer',
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-public-transport-7',
@@ -68,6 +73,9 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     categoryId: 'cat-transport',
     durationDays: 7,
     points: 200,
+    // Public transport and taxi spend both land under the same "Transport"
+    // category, so the app can't tell them apart — this can't be automatic.
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-cook-at-home-4',
@@ -78,6 +86,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 4,
     durationDays: 7,
     points: 50,
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-daily-limit-5',
@@ -88,6 +97,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 5,
     durationDays: 5,
     points: 200,
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-spare-change',
@@ -98,6 +108,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 15,
     durationDays: 7,
     points: 50,
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-no-impulse-72h',
@@ -108,6 +119,9 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 3,
     durationDays: 3,
     points: 100,
+    // "Impulsive" isn't something a logged transaction reveals — a planned big
+    // purchase and an impulse buy look identical in the data.
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-track-week',
@@ -118,6 +132,9 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 7,
     durationDays: 7,
     points: 50,
+    // Whether the user logged EVERY expense can't be verified from the expenses
+    // that made it into the data — missing entries are invisible by definition.
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-pack-lunch',
@@ -129,6 +146,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     categoryId: 'cat-eating-out',
     durationDays: 7,
     points: 50,
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-savings-sprint-100',
@@ -139,6 +157,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 100,
     durationDays: 14,
     points: 100,
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-free-weekend',
@@ -150,6 +169,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     categoryId: 'cat-entertainment',
     durationDays: 2,
     points: 50,
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-shopping-30-percent',
@@ -161,6 +181,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     categoryId: 'cat-shopping',
     durationDays: 7,
     points: 200,
+    trackingMode: 'automatic',
   },
   {
     id: 'tpl-meal-prep-sunday',
@@ -171,6 +192,7 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 1,
     durationDays: 7,
     points: 50,
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-no-rideshare-14',
@@ -182,6 +204,8 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     categoryId: 'cat-transport',
     durationDays: 14,
     points: 200,
+    // Same category-ambiguity issue as tpl-public-transport-7.
+    trackingMode: 'manual',
   },
   {
     id: 'tpl-budget-checkin',
@@ -192,6 +216,8 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
     targetValue: 3,
     durationDays: 7,
     points: 50,
+    // Screen visits aren't transaction data — there's nothing to observe here.
+    trackingMode: 'manual',
   },
 ];
 

@@ -7,6 +7,7 @@ import { useBudgetStore } from '@/store/budget-store';
 export function useChallengesWithProgress(referenceDate: Date) {
   const challenges = useBudgetStore((s) => s.challenges);
   const transactions = useBudgetStore((s) => s.transactions);
+  const profile = useBudgetStore((s) => s.profile);
 
   return useMemo(
     () =>
@@ -14,10 +15,10 @@ export function useChallengesWithProgress(referenceDate: Date) {
         .map((instance) => {
           const template = getChallengeTemplateById(instance.templateId);
           if (!template) return null;
-          const progress = computeChallengeProgress(instance, template, transactions, referenceDate);
+          const progress = computeChallengeProgress(instance, template, transactions, profile, referenceDate);
           return { instance, template, progress };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null),
-    [challenges, transactions, referenceDate]
+    [challenges, transactions, profile, referenceDate]
   );
 }

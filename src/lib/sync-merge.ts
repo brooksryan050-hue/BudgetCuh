@@ -84,6 +84,7 @@ function rowToTransaction(row: Row): Transaction {
     paymentMethod: row.payment_method as Transaction['paymentMethod'],
     isRecurring: row.is_recurring as boolean,
     recurringInterval: (row.recurring_interval as Transaction['recurringInterval'] | null) ?? undefined,
+    accountId: (row.account_id as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
