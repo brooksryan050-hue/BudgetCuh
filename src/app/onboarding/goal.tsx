@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Pill } from '@/components/ui/pill';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuthStore } from '@/store/auth-store';
 import { useBudgetStore } from '@/store/budget-store';
 import type { FinancialGoalType } from '@/types';
 import { useOnboardingDraft } from './_layout';
@@ -24,12 +25,14 @@ export default function GoalScreen() {
   const theme = useTheme();
   const { draft, updateDraft } = useOnboardingDraft();
   const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
+  const session = useAuthStore((s) => s.session);
 
   const canFinish = draft.financialGoalType !== null && parseFloat(draft.savingsGoalAmount) > 0;
 
   function handleFinish() {
-    if (!canFinish || !draft.financialGoalType) return;
+    if (!canFinish || !draft.financialGoalType || !session) return;
     completeOnboarding({
+      id: session.user.id,
       name: draft.name.trim(),
       currency: draft.currency,
       monthlyIncome: parseFloat(draft.monthlyIncome) || 0,

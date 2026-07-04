@@ -2,12 +2,15 @@ import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 
+import { useSyncBootstrap } from '@/hooks/use-sync-bootstrap';
 import { ensureDailyReminderScheduled } from '@/lib/notifications-native';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuthStore } from '@/store/auth-store';
 import { useBudgetStore } from '@/store/budget-store';
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const session = useAuthStore((s) => s.session);
   const hasCompletedOnboarding = useBudgetStore((s) => s.hasCompletedOnboarding);
   const dailyReminderEnabled = useBudgetStore((s) => s.profile?.dailyReminderEnabled ?? false);
   const dailyReminderHour = useBudgetStore((s) => s.profile?.dailyReminderHour ?? 18);
@@ -16,6 +19,12 @@ export default function TabsLayout() {
     if (!hasCompletedOnboarding) return;
     ensureDailyReminderScheduled(dailyReminderEnabled, dailyReminderHour);
   }, [hasCompletedOnboarding, dailyReminderEnabled, dailyReminderHour]);
+
+  useSyncBootstrap();
+
+  if (!session) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
 
   if (!hasCompletedOnboarding) {
     return <Redirect href="/onboarding" />;

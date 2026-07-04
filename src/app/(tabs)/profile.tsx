@@ -18,6 +18,7 @@ import { getCurrencyByCode } from '@/data/currencies';
 import { getLevelCharacter, LEVEL_CHARACTERS } from '@/data/level-characters';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { pointsForLevel } from '@/lib/gamification';
+import { signOutUser } from '@/lib/auth';
 import { ensureDailyReminderScheduled, formatReminderHour } from '@/lib/notifications-native';
 import { useLevel } from '@/hooks/use-level';
 import { useStreaks } from '@/hooks/use-streaks';
@@ -274,6 +275,14 @@ export default function ProfileScreen() {
             onPress={() => setConfirmResetVisible(true)}>
             <ThemedText type="smallBold" style={{ color: theme.danger }}>
               Reset demo data
+            </ThemedText>
+          </Pressable>
+
+          <Pressable
+            style={[styles.resetButton, { backgroundColor: theme.backgroundElement }]}
+            onPress={() => signOutUser()}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              Sign out
             </ThemedText>
           </Pressable>
         </ScrollView>

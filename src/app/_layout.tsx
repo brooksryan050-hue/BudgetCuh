@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ThemedView } from '@/components/themed-view';
+import { useAuthStore } from '@/store/auth-store';
 import { useBudgetStore } from '@/store/budget-store';
 
 SplashScreen.preventAutoHideAsync();
@@ -12,12 +13,14 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const hasHydrated = useBudgetStore((s) => s.hasHydrated);
+  const authInitializing = useAuthStore((s) => s.authInitializing);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      {hasHydrated ? (
+      {hasHydrated && !authInitializing ? (
         <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="transactions" />

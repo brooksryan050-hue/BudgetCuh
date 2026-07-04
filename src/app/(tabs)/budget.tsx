@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -150,44 +150,46 @@ export default function BudgetScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setEditingCategoryId(null)}>
-        <Pressable
-          style={[styles.overlay, { backgroundColor: theme.overlay }]}
-          onPress={() => setEditingCategoryId(null)}>
-          <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
-            {editingCategoryId ? (
-              <>
-                <View style={styles.editHeader}>
-                  <CategoryIcon categoryId={editingCategoryId} size={40} />
-                  <ThemedText type="subtitle">{getCategoryById(editingCategoryId).name}</ThemedText>
-                </View>
-                <ThemedText type="smallBold">Monthly limit</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-                  placeholder="0.00"
-                  placeholderTextColor={theme.textSecondary}
-                  value={limitInput}
-                  onChangeText={setLimitInput}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                />
-                <Pressable style={[styles.saveButton, { backgroundColor: theme.brand }]} onPress={saveLimit}>
-                  <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
-                    Save
-                  </ThemedText>
-                </Pressable>
-                {budgetedCategoryIds.has(editingCategoryId) ? (
-                  <Pressable
-                    style={[styles.deleteButton, { backgroundColor: theme.dangerBackground }]}
-                    onPress={() => setConfirmDeleteId(editingCategoryId)}>
-                    <ThemedText type="smallBold" style={{ color: theme.danger }}>
-                      Remove budget
+        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Pressable
+            style={[styles.overlay, { backgroundColor: theme.overlay }]}
+            onPress={() => setEditingCategoryId(null)}>
+            <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
+              {editingCategoryId ? (
+                <>
+                  <View style={styles.editHeader}>
+                    <CategoryIcon categoryId={editingCategoryId} size={40} />
+                    <ThemedText type="subtitle">{getCategoryById(editingCategoryId).name}</ThemedText>
+                  </View>
+                  <ThemedText type="smallBold">Monthly limit</ThemedText>
+                  <TextInput
+                    style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                    placeholder="0.00"
+                    placeholderTextColor={theme.textSecondary}
+                    value={limitInput}
+                    onChangeText={setLimitInput}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                  />
+                  <Pressable style={[styles.saveButton, { backgroundColor: theme.brand }]} onPress={saveLimit}>
+                    <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
+                      Save
                     </ThemedText>
                   </Pressable>
-                ) : null}
-              </>
-            ) : null}
+                  {budgetedCategoryIds.has(editingCategoryId) ? (
+                    <Pressable
+                      style={[styles.deleteButton, { backgroundColor: theme.dangerBackground }]}
+                      onPress={() => setConfirmDeleteId(editingCategoryId)}>
+                      <ThemedText type="smallBold" style={{ color: theme.danger }}>
+                        Remove budget
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
+                </>
+              ) : null}
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ConfirmDialog

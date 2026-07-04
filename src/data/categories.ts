@@ -7,6 +7,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-eating-out', name: 'Eating out', icon: 'restaurant', color: '#F5A623', kind: 'expense', isDefault: true },
   { id: 'cat-transport', name: 'Transport', icon: 'bus', color: '#3C87F7', kind: 'expense', isDefault: true },
   { id: 'cat-shopping', name: 'Shopping', icon: 'bag', color: '#E5484D', kind: 'expense', isDefault: true },
+  { id: 'cat-online-shopping', name: 'Online Shopping', icon: 'cart', color: '#C026D3', kind: 'expense', isDefault: true },
   { id: 'cat-subscriptions', name: 'Subscriptions', icon: 'repeat', color: '#D6409F', kind: 'expense', isDefault: true },
   { id: 'cat-entertainment', name: 'Entertainment', icon: 'film', color: '#F76B15', kind: 'expense', isDefault: true },
   { id: 'cat-health', name: 'Health', icon: 'medkit', color: '#12A594', kind: 'expense', isDefault: true },
@@ -24,4 +25,4 @@ export function getCategoryById(categoryId: string): Category {
   );
 }
 
-export const DISCRETIONARY_CATEGORY_IDS = ['cat-eating-out', 'cat-shopping', 'cat-entertainment'];
+export const DISCRETIONARY_CATEGORY_IDS = ['cat-eating-out', 'cat-shopping', 'cat-online-shopping', 'cat-entertainment'];

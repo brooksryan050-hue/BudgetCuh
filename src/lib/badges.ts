@@ -1,5 +1,5 @@
 import { DISCRETIONARY_CATEGORY_IDS } from '@/data/categories';
-import { addDays, getWeekRange, toISODate } from '@/lib/dates';
+import { addDays, daysBetween, getWeekRange, toISODate } from '@/lib/dates';
 import { getBudgetUsages } from '@/lib/budgets';
 import { levelForPoints } from '@/lib/gamification';
 import { computeDailyDisciplineStreak, computeSavingWeekStreak } from '@/lib/streaks';
@@ -31,21 +31,57 @@ function isEarned(badges: Badge[], key: BadgeKey): boolean {
   return badges.some((badge) => badge.key === key && badge.earnedAt !== null);
 }
 
-function hasNoSpendWeek(transactions: Transaction[], referenceDate: Date): boolean {
+/**
+ * Minimum account age (days since `profile.createdAt`) required before each of these
+ * badges can legitimately be earned — used both to gate live evaluation below and to
+ * invalidate any earned state (local or previously-synced) that predates this gate,
+ * e.g. from before this check existed.
+ */
+export const BADGE_MIN_ACCOUNT_AGE_DAYS: Partial<Record<BadgeKey, number>> = {
+  seven_day_saving_streak: 7,
+  thirty_day_money_discipline: 30,
+  no_spend_hero: 7,
+  budget_boss: 30,
+  grocery_master: 28,
+};
+
+// A lookback window that predates the account's own existence has no real transactions
+// to compare against by definition, which would otherwise make "no spending happened"
+// vacuously true the moment a fresh account is created — require the account to have
+// actually lived through the whole window before it can count.
+function hasExistedForDays(profile: UserProfile | null, referenceDate: Date, requiredDays: number): boolean {
+  if (!profile) return false;
+  return daysBetween(new Date(profile.createdAt), referenceDate) >= requiredDays;
+}
+
+function hasNoSpendWeek(transactions: Transaction[], profile: UserProfile | null, referenceDate: Date): boolean {
+  if (!hasExistedForDays(profile, referenceDate, 7)) return false;
   const range = getWeekRange(addDays(referenceDate, -7));
   const totals = getCategoryTotals(transactions, range);
   return DISCRETIONARY_CATEGORY_IDS.every((categoryId) => !totals[categoryId]);
 }
 
-function isFullyOnBudgetMonth(transactions: Transaction[], budgets: Budget[], referenceDate: Date): boolean {
+function isFullyOnBudgetMonth(
+  transactions: Transaction[],
+  budgets: Budget[],
+  profile: UserProfile | null,
+  referenceDate: Date
+): boolean {
   if (budgets.length === 0) return false;
+  if (!hasExistedForDays(profile, referenceDate, 30)) return false;
   const usages = getBudgetUsages(transactions, budgets, addDays(referenceDate, -30));
   return usages.every((usage) => usage.status !== 'over_budget');
 }
 
-function hasFourOnBudgetGroceryWeeks(transactions: Transaction[], budgets: Budget[], referenceDate: Date): boolean {
+function hasFourOnBudgetGroceryWeeks(
+  transactions: Transaction[],
+  budgets: Budget[],
+  profile: UserProfile | null,
+  referenceDate: Date
+): boolean {
   const groceryBudget = budgets.find((budget) => budget.categoryId === 'cat-groceries');
   if (!groceryBudget) return false;
+  if (!hasExistedForDays(profile, referenceDate, 28)) return false;
   const weeklyLimit = groceryBudget.monthlyLimit / 4;
 
   for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
@@ -65,9 +101,9 @@ export function evaluateBadges(ctx: BadgeEvalContext): BadgeKey[] {
     ['first_budget_created', () => budgets.length >= 1],
     ['seven_day_saving_streak', () => computeDailyDisciplineStreak(transactions, profile, referenceDate) >= 7],
     ['thirty_day_money_discipline', () => computeDailyDisciplineStreak(transactions, profile, referenceDate) >= 30],
-    ['no_spend_hero', () => hasNoSpendWeek(transactions, referenceDate)],
-    ['budget_boss', () => isFullyOnBudgetMonth(transactions, budgets, referenceDate)],
-    ['grocery_master', () => hasFourOnBudgetGroceryWeeks(transactions, budgets, referenceDate)],
+    ['no_spend_hero', () => hasNoSpendWeek(transactions, profile, referenceDate)],
+    ['budget_boss', () => isFullyOnBudgetMonth(transactions, budgets, profile, referenceDate)],
+    ['grocery_master', () => hasFourOnBudgetGroceryWeeks(transactions, budgets, profile, referenceDate)],
     [
       'emergency_fund_starter',
       () =>

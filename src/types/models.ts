@@ -86,6 +86,7 @@ export interface UserProfile {
   /** 0-23, local time. */
   dailyReminderHour: number;
   createdAt: ISODateTime;
+  updatedAt: ISODateTime;
 }
 
 export interface Account {
@@ -120,6 +121,8 @@ export interface ChallengeInstance {
   status: ChallengeStatus;
   checkIns: ISODate[];
   completedAt?: ISODateTime;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
 }
 
 export interface SavingsGoalContribution {
@@ -137,6 +140,7 @@ export interface SavingsGoal {
   deadline?: ISODate;
   financialGoalType?: FinancialGoalType;
   createdAt: ISODateTime;
+  updatedAt: ISODateTime;
   contributions: SavingsGoalContribution[];
 }
 

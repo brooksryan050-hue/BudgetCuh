@@ -1,4 +1,4 @@
-import { addDays, toISODate } from '@/lib/dates';
+import { addDays, daysBetween, toISODate } from '@/lib/dates';
 import type { Transaction, UserProfile, WeeklySummary } from '@/types';
 
 export function computeDailyDisciplineStreak(
@@ -15,9 +15,14 @@ export function computeDailyDisciplineStreak(
     spendByDate[transaction.date] = (spendByDate[transaction.date] ?? 0) + transaction.amount;
   }
 
+  // A day with no logged spend looks identical to a day that simply hasn't happened
+  // yet for this account — cap the walk-back at the account's actual age so a
+  // brand-new profile can't claim a streak longer than it has existed.
+  const daysSinceCreation = daysBetween(new Date(profile.createdAt), referenceDate);
+
   let streak = 0;
   let cursor = addDays(referenceDate, -1);
-  for (let i = 0; i < 400; i++) {
+  for (let i = 0; i < 400 && i < daysSinceCreation; i++) {
     const key = toISODate(cursor);
     const spend = spendByDate[key] ?? 0;
     if (spend <= dailyLimit) {

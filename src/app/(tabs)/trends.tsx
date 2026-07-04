@@ -17,6 +17,7 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import {
   addDays,
   formatMonthLabel,
+  formatShortDate,
   formatWeekRangeLabel,
   getMonthRange,
   getWeekRange,
@@ -88,7 +89,9 @@ export default function TrendsScreen() {
       const weekReference = addDays(anchor, -weekOffset * 7);
       const range = getWeekRange(weekReference);
       const spend = sumByType(filterByRange(transactions, range), 'expense');
-      const label = weekOffset === 0 ? 'Sel. wk' : `${weekOffset}w prior`;
+      // Label by the week's actual start date (e.g. "Jun 29") rather than an abstract
+      // "N weeks prior" count, which was confusing to line up against real weeks.
+      const label = formatShortDate(range.start);
       return { label, value: spend };
     });
   }, [transactions, viewMode, selectedDate, periodRange]);
@@ -177,7 +180,11 @@ export default function TrendsScreen() {
 
               <Card>
                 <SectionHeader title="Weekly spending trend" />
-                <BarChart data={weeklyTrendData} highlightIndex={weeklyTrendData.length - 1} />
+                <BarChart
+                  data={weeklyTrendData}
+                  highlightIndex={weeklyTrendData.length - 1}
+                  formatValue={(value) => formatter.format(value)}
+                />
               </Card>
 
               <Card>
@@ -185,12 +192,18 @@ export default function TrendsScreen() {
                 <BarChart
                   data={viewMode === 'week' ? weekDayBreakdown : monthWeekBreakdown}
                   color={theme.brandSecondary}
+                  formatValue={(value) => formatter.format(value)}
                 />
               </Card>
 
               <Card>
                 <SectionHeader title="Income vs expenses" />
-                <GroupedBarChart data={incomeVsExpenseData} />
+                <GroupedBarChart
+                  data={incomeVsExpenseData}
+                  labelA="Income"
+                  labelB="Expenses"
+                  formatValue={(value) => formatter.format(value)}
+                />
                 <View style={styles.legendRow}>
                   <View style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: theme.success }]} />

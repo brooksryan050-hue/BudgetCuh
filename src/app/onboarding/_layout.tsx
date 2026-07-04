@@ -1,6 +1,8 @@
 import { createContext, useContext, useState } from 'react';
 import { Redirect, Stack } from 'expo-router';
 
+import { useSyncBootstrap } from '@/hooks/use-sync-bootstrap';
+import { useAuthStore } from '@/store/auth-store';
 import { useBudgetStore } from '@/store/budget-store';
 import type { FinancialGoalType, SavingsGoalCadence } from '@/types';
 
@@ -36,11 +38,18 @@ export function useOnboardingDraft() {
 }
 
 export default function OnboardingLayout() {
+  const session = useAuthStore((s) => s.session);
   const hasCompletedOnboarding = useBudgetStore((s) => s.hasCompletedOnboarding);
   const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
 
   function updateDraft(patch: Partial<OnboardingDraft>) {
     setDraft((prev) => ({ ...prev, ...patch }));
+  }
+
+  useSyncBootstrap();
+
+  if (!session) {
+    return <Redirect href="/(auth)/sign-in" />;
   }
 
   if (hasCompletedOnboarding) {

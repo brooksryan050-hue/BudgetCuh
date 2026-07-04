@@ -15,7 +15,7 @@ import { getChallengeTemplateById } from '@/data/challenge-templates';
 import { getBadgeCatalogEntry } from '@/data/badges';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { computeChallengeProgress } from '@/lib/challenges';
-import { fromISODate, formatFullDate } from '@/lib/dates';
+import { fromISODate, formatFullDate, toISODate } from '@/lib/dates';
 import { playChallengeCompleteSound } from '@/lib/sound';
 import { useTheme } from '@/hooks/use-theme';
 import { useBudgetStore } from '@/store/budget-store';
@@ -31,6 +31,7 @@ export default function ChallengeDetailScreen() {
   const challenges = useBudgetStore((s) => s.challenges);
   const transactions = useBudgetStore((s) => s.transactions);
   const claimChallengeReward = useBudgetStore((s) => s.claimChallengeReward);
+  const recordChallengeCheckIn = useBudgetStore((s) => s.recordChallengeCheckIn);
 
   const instance = challenges.find((c) => c.id === params.id);
   const template = instance ? getChallengeTemplateById(instance.templateId) : undefined;
@@ -50,11 +51,23 @@ export default function ChallengeDetailScreen() {
   const canClaim = instance.status === 'active' && progress.isComplete;
   const isCompleted = instance.status === 'completed';
 
+  // These target types can't be derived from transaction data at all (e.g. "cook at
+  // home 4 times" has no natural spending signature) — progress only ever moves via a
+  // manual check-in, so this screen needs to actually expose that action.
+  const isCheckInType = template.targetType === 'streak_days' || template.targetType === 'count_actions';
+  const todayISO = toISODate(referenceDate);
+  const alreadyCheckedInToday = instance.checkIns.includes(todayISO);
+
   function handleClaim() {
     claimChallengeReward(instance!.id);
     setConfettiTrigger((n) => n + 1);
     playChallengeCompleteSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }
+
+  function handleCheckIn() {
+    recordChallengeCheckIn(instance!.id, todayISO);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }
 
   return (
@@ -126,6 +139,25 @@ export default function ChallengeDetailScreen() {
                 Claim reward
               </ThemedText>
             </Pressable>
+          ) : isCheckInType ? (
+            <View style={styles.checkInSection}>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+                {progress.progressValue} of {template.targetValue} check-ins logged
+              </ThemedText>
+              <Pressable
+                disabled={alreadyCheckedInToday}
+                onPress={handleCheckIn}
+                style={[
+                  styles.claimButton,
+                  { backgroundColor: alreadyCheckedInToday ? theme.backgroundElement : theme.brand },
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: alreadyCheckedInToday ? theme.textSecondary : '#ffffff' }}>
+                  {alreadyCheckedInToday ? 'Checked in today ✓' : 'Check in for today'}
+                </ThemedText>
+              </Pressable>
+            </View>
           ) : (
             <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
               Keep going — your progress updates automatically as you log transactions.
@@ -189,6 +221,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.three,
     borderRadius: Radius.lg,
+  },
+  checkInSection: {
+    gap: Spacing.two,
   },
   hint: {
     textAlign: 'center',

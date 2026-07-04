@@ -38,11 +38,11 @@ export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
   {
     id: 'tpl-no-online-shopping',
     title: 'No online shopping this week',
-    description: 'Skip impulse buys and online carts for a full week.',
+    description: 'Skip impulse buys and online carts for a full week. Log any online purchases under "Online Shopping" so this challenge can track it.',
     difficulty: 'medium',
     targetType: 'no_spend_category',
     targetValue: 7,
-    categoryId: 'cat-shopping',
+    categoryId: 'cat-online-shopping',
     durationDays: 7,
     points: 100,
   },

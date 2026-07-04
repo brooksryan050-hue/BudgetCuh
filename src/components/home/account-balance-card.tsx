@@ -105,19 +105,17 @@ export function AccountBalanceCard() {
         </ScrollView>
       ) : null}
 
-      {accounts.length > 1 ? (
-        <View style={styles.dots}>
-          {[...accounts, { id: 'add' }].map((item, index) => (
-            <View
-              key={item.id}
-              style={[
-                styles.dot,
-                { backgroundColor: index === pageIndex ? theme.brand : theme.backgroundSelected },
-              ]}
-            />
-          ))}
-        </View>
-      ) : null}
+      <View style={styles.dots}>
+        {[...accounts, { id: 'add' }].map((item, index) => (
+          <View
+            key={item.id}
+            style={[
+              styles.dot,
+              { backgroundColor: index === pageIndex ? theme.brand : theme.backgroundSelected },
+            ]}
+          />
+        ))}
+      </View>
 
       <Modal visible={editingAccountId !== null} transparent animationType="fade" onRequestClose={() => setEditingAccountId(null)}>
         <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setEditingAccountId(null)}>
