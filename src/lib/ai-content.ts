@@ -56,12 +56,30 @@ export async function fetchLatestNudge(userId: string): Promise<AiNudge | null> 
  * the current session JWT automatically) — fast-path returns today's existing nudge,
  * slow-path generates one live via Claude. Used as an on-open fallback so the Coach
  * screen always has something for today instead of waiting on the daily cron.
+ * `force: true` (Profile > Developer options test button) skips the fast path and
+ * always regenerates, overwriting today's nudge.
  */
-export async function getOrGenerateTodaysNudge(): Promise<AiNudge> {
-  const { data, error } = await supabase.functions.invoke('get-or-generate-nudge');
+export async function getOrGenerateTodaysNudge(options: { force?: boolean } = {}): Promise<AiNudge> {
+  const { data, error } = await supabase.functions.invoke('get-or-generate-nudge', {
+    body: { force: options.force ?? false },
+  });
   if (error) throw error;
   if (!data?.nudge) throw new Error('get-or-generate-nudge returned no nudge.');
   return nudgeFromRow(data.nudge);
+}
+
+/**
+ * Dev-tools test helper (Profile > Developer options) — generates a reflection for
+ * the week/month STILL IN PROGRESS (unlike the real cron, which only ever reflects on
+ * a fully completed period), so a tester can log a transaction and see it immediately.
+ * Doesn't return the content directly; the row lands in ai_reflections and the
+ * Reflection screen's normal fetch picks it up.
+ */
+export async function testGenerateReflection(periodType: ReflectionPeriodType): Promise<void> {
+  const { error } = await supabase.functions.invoke('get-or-generate-reflection', {
+    body: { periodType },
+  });
+  if (error) throw error;
 }
 
 export async function fetchRecentNudges(userId: string, limit = 7): Promise<AiNudge[]> {

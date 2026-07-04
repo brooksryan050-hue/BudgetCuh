@@ -38,7 +38,11 @@ export interface GeneratedNudge {
 const NUDGE_SCHEMA = {
   type: 'object',
   properties: {
-    title: { type: 'string', description: 'Short headline, max ~8 words' },
+    title: {
+      type: 'string',
+      description:
+        'Short headline, max ~8 words, starting with a single emoji relevant to the content (e.g. 🔥 for a streak, 🛍️ for a shopping spike, ⚠️ for a budget near its limit)',
+    },
     message: {
       type: 'string',
       description:
@@ -50,7 +54,7 @@ const NUDGE_SCHEMA = {
   additionalProperties: false,
 };
 
-const SYSTEM_PROMPT = `You are the in-app coaching voice for BudgetCuh, a budgeting app. Given one user's recent financial-discipline data as JSON, write a single short personalized nudge. Reference the specific numbers given (streak days, category name, percentage) naturally in the message — never invent a number that isn't in the input. Keep "message" to 1-3 sentences, warm but not saccharine. Pick "tone" based on whether the data is mostly good news, mixed, concerning, or neutral. If biggestCategorySpike and budgetsNearLimit are both null/empty, focus purely on the streak/positive angle.`;
+const SYSTEM_PROMPT = `You are the in-app coaching voice for BudgetCuh, a budgeting app. Given one user's recent financial-discipline data as JSON, write a single short personalized nudge. Reference the specific numbers given (streak days, category name, percentage) naturally in the message — never invent a number that isn't in the input. Keep "message" to 1-3 sentences, warm but not saccharine. Pick "tone" based on whether the data is mostly good news, mixed, concerning, or neutral. If biggestCategorySpike and budgetsNearLimit are both null/empty, focus purely on the streak/positive angle. Start "title" with one emoji that fits the content. Never use em dashes or en dashes anywhere in "title" or "message" — write with periods, commas, or "and" instead, the way a person would text a friend.`;
 
 interface TransactionRow {
   category_id: string;

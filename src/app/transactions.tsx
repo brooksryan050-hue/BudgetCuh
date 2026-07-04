@@ -18,6 +18,7 @@ export default function TransactionsScreen() {
   const theme = useTheme();
   const transactions = useBudgetStore((s) => s.transactions);
   const profile = useBudgetStore((s) => s.profile);
+  const accounts = useBudgetStore((s) => s.accounts);
 
   const sections = useMemo(() => {
     const grouped: Record<string, Transaction[]> = {};
@@ -58,6 +59,7 @@ export default function TransactionsScreen() {
             <TransactionRow
               transaction={item}
               currency={profile?.currency ?? 'USD'}
+              accounts={accounts}
               onPress={() => router.push({ pathname: '/transaction-form', params: { id: item.id } })}
             />
           )}

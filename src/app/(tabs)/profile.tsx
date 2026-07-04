@@ -19,7 +19,9 @@ import { getLevelCharacter, LEVEL_CHARACTERS } from '@/data/level-characters';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { pointsForLevel } from '@/lib/gamification';
 import { signOutUser } from '@/lib/auth';
+import { getOrGenerateTodaysNudge, testGenerateReflection } from '@/lib/ai-content';
 import { ensureDailyReminderScheduled, formatReminderHour } from '@/lib/notifications-native';
+import { showSimulatedNotification } from '@/lib/notification-toast';
 import { registerForPushNotificationsAsync } from '@/lib/push-notifications';
 import { useLevel } from '@/hooks/use-level';
 import { useStreaks } from '@/hooks/use-streaks';
@@ -45,6 +47,8 @@ export default function ProfileScreen() {
   const [incomeInput, setIncomeInput] = useState(profile ? `${profile.monthlyIncome}` : '');
   const [confirmResetVisible, setConfirmResetVisible] = useState(false);
   const [devModeEnabled, setDevModeEnabled] = useState(false);
+  const [aiTestStatus, setAiTestStatus] = useState<string | null>(null);
+  const [aiTestBusy, setAiTestBusy] = useState(false);
   const [requestingPush, setRequestingPush] = useState(false);
   const [pushSetupError, setPushSetupError] = useState<string | null>(null);
 
@@ -114,7 +118,37 @@ export default function ProfileScreen() {
       // Permission denied, running on web/simulator, or no EAS project id yet —
       // leave the toggle off rather than claiming a state we can't deliver on, but
       // say why instead of silently doing nothing.
-      setPushSetupError("Couldn't turn this on — check notification permissions, or ask your developer to finish push setup.");
+      setPushSetupError("Couldn't turn this on, check notification permissions, or ask your developer to finish push setup.");
+    }
+  }
+
+  async function testRegenerateNudge() {
+    setAiTestBusy(true);
+    setAiTestStatus(null);
+    try {
+      const nudge = await getOrGenerateTodaysNudge({ force: true });
+      showSimulatedNotification({
+        title: nudge.title,
+        message: nudge.message,
+        onPress: () => router.push('/coach'),
+      });
+    } catch {
+      setAiTestStatus("Couldn't regenerate the nudge, check the function logs.");
+    } finally {
+      setAiTestBusy(false);
+    }
+  }
+
+  async function testReflection(periodType: 'weekly' | 'monthly') {
+    setAiTestBusy(true);
+    setAiTestStatus(null);
+    try {
+      await testGenerateReflection(periodType);
+      router.push('/reflection');
+    } catch {
+      setAiTestStatus(`No transactions logged yet in the current ${periodType === 'weekly' ? 'week' : 'month'} to reflect on.`);
+    } finally {
+      setAiTestBusy(false);
     }
   }
 
@@ -306,6 +340,61 @@ export default function ProfileScreen() {
                       </Pressable>
                     ))}
                   </View>
+
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Force-regenerate AI content from your current transactions, instead of waiting on the daily/weekly
+                    cron. Reflections use the week/month still in progress, not the last completed one. Nudge regeneration
+                    shows a simulated push banner (real push doesn&apos;t work in a browser).
+                  </ThemedText>
+                  <Pressable
+                    disabled={aiTestBusy}
+                    style={[styles.testButton, { backgroundColor: theme.backgroundElement }, aiTestBusy && styles.buttonDisabled]}
+                    onPress={testRegenerateNudge}>
+                    <Ionicons name="refresh" size={16} color={theme.brand} />
+                    <ThemedText type="smallBold" style={{ color: theme.brand }}>
+                      Regenerate today&apos;s nudge
+                    </ThemedText>
+                  </Pressable>
+                  <View style={styles.testButtonRow}>
+                    <Pressable
+                      disabled={aiTestBusy}
+                      style={[
+                        styles.testButton,
+                        styles.testButtonHalf,
+                        { backgroundColor: theme.backgroundElement },
+                        aiTestBusy && styles.buttonDisabled,
+                      ]}
+                      onPress={() => testReflection('weekly')}>
+                      <Ionicons name="refresh" size={16} color={theme.brandSecondary} />
+                      <ThemedText type="smallBold" style={{ color: theme.brandSecondary }}>
+                        Test weekly reflection
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      disabled={aiTestBusy}
+                      style={[
+                        styles.testButton,
+                        styles.testButtonHalf,
+                        { backgroundColor: theme.backgroundElement },
+                        aiTestBusy && styles.buttonDisabled,
+                      ]}
+                      onPress={() => testReflection('monthly')}>
+                      <Ionicons name="refresh" size={16} color={theme.brandSecondary} />
+                      <ThemedText type="smallBold" style={{ color: theme.brandSecondary }}>
+                        Test monthly reflection
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                  {aiTestBusy ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Generating…
+                    </ThemedText>
+                  ) : aiTestStatus ? (
+                    <ThemedText type="small" style={{ color: theme.danger }}>
+                      {aiTestStatus}
+                    </ThemedText>
+                  ) : null}
                 </>
               ) : null}
             </Card>
@@ -445,6 +534,24 @@ const styles = StyleSheet.create({
   },
   levelJumpEmoji: {
     fontSize: 20,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.md,
+  },
+  testButtonRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  testButtonHalf: {
+    flex: 1,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   statsCard: {
     gap: Spacing.two,

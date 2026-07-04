@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ThemedView } from '@/components/themed-view';
+import { NotificationToastHost } from '@/components/ui/notification-toast-host';
 import { useAuthStore } from '@/store/auth-store';
 import { useBudgetStore } from '@/store/budget-store';
 
@@ -19,17 +20,20 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       {hasHydrated && !authInitializing ? (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="transactions" />
-          <Stack.Screen name="challenge/[id]" />
-          <Stack.Screen name="savings-goals" />
-          <Stack.Screen name="coach" />
-          <Stack.Screen name="reflection" />
-          <Stack.Screen name="transaction-form" options={{ presentation: 'modal' }} />
-        </Stack>
+        <>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="transactions" />
+            <Stack.Screen name="challenge/[id]" />
+            <Stack.Screen name="savings-goals" />
+            <Stack.Screen name="coach" />
+            <Stack.Screen name="reflection" />
+            <Stack.Screen name="transaction-form" options={{ presentation: 'modal' }} />
+          </Stack>
+          <NotificationToastHost />
+        </>
       ) : (
         <ThemedView style={{ flex: 1 }} />
       )}

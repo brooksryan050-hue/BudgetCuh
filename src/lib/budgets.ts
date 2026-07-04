@@ -15,9 +15,11 @@ export function getBudgetUsages(
     const pctUsed = budget.monthlyLimit > 0 ? (spent / budget.monthlyLimit) * 100 : 0;
     const remaining = budget.monthlyLimit - spent;
 
+    // Reaching exactly 100% (spent === limit) still reads as "ok" — only spending
+    // strictly past the limit, even by a cent, should turn this red.
     let status: BudgetUsage['status'] = 'ok';
-    if (pctUsed >= 100) status = 'over_budget';
-    else if (pctUsed >= 80) status = 'near_limit';
+    if (pctUsed > 100) status = 'over_budget';
+    else if (pctUsed >= 80 && pctUsed < 100) status = 'near_limit';
 
     return {
       budgetId: budget.id,

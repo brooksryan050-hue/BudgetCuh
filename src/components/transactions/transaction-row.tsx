@@ -7,20 +7,27 @@ import { Spacing } from '@/constants/theme';
 import { fromISODate, formatShortDate } from '@/lib/dates';
 import { getCurrencyFormatter } from '@/lib/currency';
 import { useTheme } from '@/hooks/use-theme';
-import type { Transaction } from '@/types';
+import type { Account, Transaction } from '@/types';
 
 type TransactionRowProps = {
   transaction: Transaction;
   currency: string;
+  /** Only shown when there's more than one account — a single-account app has
+   * nothing to disambiguate, so the tag would just be redundant noise. */
+  accounts?: Account[];
   onPress?: () => void;
 };
 
-export function TransactionRow({ transaction, currency, onPress }: TransactionRowProps) {
+export function TransactionRow({ transaction, currency, accounts = [], onPress }: TransactionRowProps) {
   const theme = useTheme();
   const category = getCategoryById(transaction.categoryId);
   const isIncome = transaction.type === 'income';
 
   const formatter = getCurrencyFormatter(currency);
+  const accountName =
+    accounts.length > 1
+      ? (accounts.find((a) => a.id === transaction.accountId) ?? accounts[0])?.name
+      : undefined;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
@@ -33,6 +40,7 @@ export function TransactionRow({ transaction, currency, onPress }: TransactionRo
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.subtext}>
             {formatShortDate(fromISODate(transaction.date))}
             {transaction.isRecurring ? ' · Recurring' : ''}
+            {accountName ? ` · ${accountName}` : ''}
           </ThemedText>
           <ThemedText
             type="smallBold"

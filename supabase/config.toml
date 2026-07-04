@@ -420,6 +420,11 @@ verify_jwt = false
 [functions.get-or-generate-nudge]
 verify_jwt = true
 
+# Dev-tools test function (Profile > Developer options), not part of production cron
+# flow — same client-JWT auth model as get-or-generate-nudge above.
+[functions.get-or-generate-reflection]
+verify_jwt = true
+
 # pg-delta is the schema diff engine for db diff / db pull / db remote commit.
 # Set enabled = false to fall back to the legacy migra engine.
 [experimental.pgdelta]

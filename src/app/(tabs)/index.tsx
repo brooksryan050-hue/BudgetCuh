@@ -49,6 +49,7 @@ export default function HomeScreen() {
 
   const profile = useBudgetStore((s) => s.profile);
   const transactions = useBudgetStore((s) => s.transactions);
+  const accounts = useBudgetStore((s) => s.accounts);
   const savingsGoals = useBudgetStore((s) => s.savingsGoals);
   const markNotificationRead = useBudgetStore((s) => s.markNotificationRead);
   const dismissNotification = useBudgetStore((s) => s.dismissNotification);
@@ -196,6 +197,7 @@ export default function HomeScreen() {
                     key={transaction.id}
                     transaction={transaction}
                     currency={currency}
+                    accounts={accounts}
                     onPress={() => router.push({ pathname: '/transaction-form', params: { id: transaction.id } })}
                   />
                 ))}

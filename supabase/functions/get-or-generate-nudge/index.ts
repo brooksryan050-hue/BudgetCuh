@@ -7,6 +7,10 @@
 // Fast path: if ai_nudges already has today's row for this user, return it with no
 // Claude call. Slow path: generate one via the same generateNudgeForUser used by the
 // daily batch. No push is sent from here — the user is already looking at the app.
+//
+// Optional body `{"force": true}` skips the fast path and always regenerates —
+// used by the Profile > Developer options "Regenerate today's nudge" test button so
+// testers aren't stuck with the first nudge generated each day.
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { getAuthenticatedUserId } from '../_shared/user-auth.ts';
 import { generateNudgeForUser, type NudgeProfileInput } from '../_shared/nudge-generation.ts';
@@ -14,6 +18,15 @@ import { toISODate } from '../_shared/dates.ts';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+async function readForceFlag(req: Request): Promise<boolean> {
+  try {
+    const body = await req.json();
+    return body?.force === true;
+  } catch {
+    return false;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -25,18 +38,21 @@ Deno.serve(async (req) => {
   }
   if (!userId) return jsonResponse({ error: 'Unauthorized' }, 401);
 
+  const force = await readForceFlag(req);
   const admin = getAdminClient();
   const today = toISODate(new Date());
 
-  const { data: existing, error: existingError } = await admin
-    .from('ai_nudges')
-    .select('id, generated_date, title, message, tone, created_at')
-    .eq('user_id', userId)
-    .eq('generated_date', today)
-    .maybeSingle();
+  if (!force) {
+    const { data: existing, error: existingError } = await admin
+      .from('ai_nudges')
+      .select('id, generated_date, title, message, tone, created_at')
+      .eq('user_id', userId)
+      .eq('generated_date', today)
+      .maybeSingle();
 
-  if (existingError) return jsonResponse({ error: existingError.message }, 500);
-  if (existing) return jsonResponse({ nudge: existing });
+    if (existingError) return jsonResponse({ error: existingError.message }, 500);
+    if (existing) return jsonResponse({ nudge: existing });
+  }
 
   const { data: profile, error: profileError } = await admin
     .from('profiles')
