@@ -20,9 +20,10 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { pointsForLevel } from '@/lib/gamification';
 import { signOutUser } from '@/lib/auth';
 import { getOrGenerateTodaysNudge, testGenerateReflection } from '@/lib/ai-content';
-import { ensureDailyReminderScheduled, formatReminderHour } from '@/lib/notifications-native';
+import { ensureDailyReminderScheduled, formatReminderHour, scheduleOneOffNotification } from '@/lib/notifications-native';
 import { showSimulatedNotification } from '@/lib/notification-toast';
 import { registerForPushNotificationsAsync } from '@/lib/push-notifications';
+import type { SimScenario } from '@/lib/simulate-scenario';
 import { useLevel } from '@/hooks/use-level';
 import { useStreaks } from '@/hooks/use-streaks';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,6 +39,8 @@ export default function ProfileScreen() {
   const updateProfile = useBudgetStore((s) => s.updateProfile);
   const resetAllData = useBudgetStore((s) => s.resetAllData);
   const devSetPoints = useBudgetStore((s) => s.devSetPoints);
+  const loadSimulatedScenario = useBudgetStore((s) => s.loadSimulatedScenario);
+  const devCompleteAllChallenges = useBudgetStore((s) => s.devCompleteAllChallenges);
   const { level, points } = useLevel();
   const streaks = useStreaks(new Date());
   const character = getLevelCharacter(level);
@@ -49,6 +52,8 @@ export default function ProfileScreen() {
   const [devModeEnabled, setDevModeEnabled] = useState(false);
   const [aiTestStatus, setAiTestStatus] = useState<string | null>(null);
   const [aiTestBusy, setAiTestBusy] = useState(false);
+  const [pendingScenario, setPendingScenario] = useState<SimScenario | null>(null);
+  const [scenarioStatus, setScenarioStatus] = useState<string | null>(null);
   const [requestingPush, setRequestingPush] = useState(false);
   const [pushSetupError, setPushSetupError] = useState<string | null>(null);
 
@@ -132,8 +137,8 @@ export default function ProfileScreen() {
         message: nudge.message,
         onPress: () => router.push('/coach'),
       });
-    } catch {
-      setAiTestStatus("Couldn't regenerate the nudge, check the function logs.");
+    } catch (error) {
+      setAiTestStatus(error instanceof Error ? error.message : "Couldn't regenerate the nudge, check the function logs.");
     } finally {
       setAiTestBusy(false);
     }
@@ -145,11 +150,44 @@ export default function ProfileScreen() {
     try {
       await testGenerateReflection(periodType);
       router.push('/reflection');
-    } catch {
-      setAiTestStatus(`No transactions logged yet in the current ${periodType === 'weekly' ? 'week' : 'month'} to reflect on.`);
+    } catch (error) {
+      setAiTestStatus(error instanceof Error ? error.message : `Couldn't generate the ${periodType} reflection.`);
     } finally {
       setAiTestBusy(false);
     }
+  }
+
+  function confirmLoadScenario() {
+    if (!pendingScenario) return;
+    loadSimulatedScenario(pendingScenario);
+    setScenarioStatus(
+      pendingScenario === 'high_saver'
+        ? '30 days of high-savings history loaded. Try "Regenerate today\'s nudge" or a reflection test below.'
+        : '30 days of high-spending history loaded. Try "Regenerate today\'s nudge" or a reflection test below.'
+    );
+    setPendingScenario(null);
+  }
+
+  function completeAllChallenges() {
+    devCompleteAllChallenges();
+    setScenarioStatus('All challenges marked complete. Points, badges, and completion notifications should reflect it now.');
+  }
+
+  async function sendTestNotification() {
+    const target = new Date();
+    target.setHours(18, 30, 0, 0);
+    // If 6:30pm already passed by the time this got tapped, fire it in 10 seconds
+    // instead of waiting until tomorrow — the point is testing, not the exact time.
+    const alreadyPassed = target.getTime() <= Date.now();
+    if (alreadyPassed) target.setTime(Date.now() + 10_000);
+    const ok = await scheduleOneOffNotification('Test', 'test', target);
+    setScenarioStatus(
+      ok
+        ? alreadyPassed
+          ? '6:30pm already passed, so this will fire in about 10 seconds instead. Lock your phone and wait for it.'
+          : `Scheduled for ${target.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} today. Lock your phone and wait for it.`
+        : "Couldn't schedule it, check notification permissions."
+    );
   }
 
   const earnedCount = badges.filter((b) => b.earnedAt !== null).length;
@@ -343,10 +381,66 @@ export default function ProfileScreen() {
 
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <ThemedText type="small" themeColor="textSecondary">
+                    No real usage yet? Load 30 days of simulated transaction history so the nudge/reflection tests below
+                    have real, data-verifiable extremes to react to instead of an empty account.
+                  </ThemedText>
+                  <View style={styles.testButtonRow}>
+                    <Pressable
+                      style={[styles.testButton, styles.testButtonHalf, { backgroundColor: theme.backgroundElement }]}
+                      onPress={() => setPendingScenario('high_saver')}>
+                      <ThemedText type="smallBold" style={{ color: theme.success }}>
+                        💰 High saver
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.testButton, styles.testButtonHalf, { backgroundColor: theme.backgroundElement }]}
+                      onPress={() => setPendingScenario('high_spender')}>
+                      <ThemedText type="smallBold" style={{ color: theme.danger }}>
+                        🛍️ High spender
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    style={[styles.testButton, { backgroundColor: theme.backgroundElement }]}
+                    onPress={completeAllChallenges}>
+                    <Ionicons name="trophy" size={16} color={theme.brandSecondary} />
+                    <ThemedText type="smallBold" style={{ color: theme.brandSecondary }}>
+                      Mark all challenges complete
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.testButton, { backgroundColor: theme.backgroundElement }]}
+                    onPress={sendTestNotification}>
+                    <Ionicons name="notifications" size={16} color={theme.brand} />
+                    <ThemedText type="smallBold" style={{ color: theme.brand }}>
+                      Send test notification (6:30pm)
+                    </ThemedText>
+                  </Pressable>
+                  {scenarioStatus ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {scenarioStatus}
+                    </ThemedText>
+                  ) : null}
+
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <ThemedText type="small" themeColor="textSecondary">
                     Force-regenerate AI content from your current transactions, instead of waiting on the daily/weekly
                     cron. Reflections use the week/month still in progress, not the last completed one. Nudge regeneration
                     shows a simulated push banner (real push doesn&apos;t work in a browser).
                   </ThemedText>
+                  <Pressable
+                    style={[styles.testButton, { backgroundColor: theme.backgroundElement }]}
+                    onPress={() =>
+                      showSimulatedNotification({
+                        title: '🔔 Preview banner',
+                        message: "If you can see this, the toast itself works fine, no AI call involved.",
+                      })
+                    }>
+                    <Ionicons name="eye" size={16} color={theme.textSecondary} />
+                    <ThemedText type="smallBold" themeColor="textSecondary">
+                      Preview toast banner (no AI call)
+                    </ThemedText>
+                  </Pressable>
                   <Pressable
                     disabled={aiTestBusy}
                     style={[styles.testButton, { backgroundColor: theme.backgroundElement }, aiTestBusy && styles.buttonDisabled]}
@@ -426,6 +520,16 @@ export default function ProfileScreen() {
         destructive
         onConfirm={handleReset}
         onCancel={() => setConfirmResetVisible(false)}
+      />
+
+      <ConfirmDialog
+        visible={pendingScenario !== null}
+        title={`Load ${pendingScenario === 'high_saver' ? 'high saver' : 'high spender'} scenario?`}
+        message="This replaces any previously-loaded simulated history with a fresh 30-day run. Your real transactions (if any) aren't touched."
+        confirmLabel="Load scenario"
+        destructive
+        onConfirm={confirmLoadScenario}
+        onCancel={() => setPendingScenario(null)}
       />
 
       <Modal

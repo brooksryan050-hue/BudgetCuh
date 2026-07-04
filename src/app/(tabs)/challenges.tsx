@@ -13,6 +13,7 @@ import { ChallengeCard } from '@/components/challenges/challenge-card';
 import { BadgeCard } from '@/components/challenges/badge-card';
 import { LevelCharacterCard } from '@/components/challenges/level-character-card';
 import { CHALLENGE_TEMPLATES } from '@/data/challenge-templates';
+import { daysUntilTemplateAvailable, isTemplateAvailableToStart } from '@/lib/challenges';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useChallengesWithProgress } from '@/hooks/use-active-challenges';
 import { useTheme } from '@/hooks/use-theme';
@@ -29,8 +30,10 @@ export default function ChallengesScreen() {
   const active = challengesWithProgress.filter((c) => c.instance.status === 'active');
   const completed = challengesWithProgress.filter((c) => c.instance.status === 'completed');
 
-  const startedTemplateIds = new Set(challenges.map((c) => c.templateId));
-  const availableTemplates = CHALLENGE_TEMPLATES.filter((t) => !startedTemplateIds.has(t.id));
+  const availableTemplates = CHALLENGE_TEMPLATES.filter((t) => isTemplateAvailableToStart(t, challenges, referenceDate));
+  const coolingDownTemplates = CHALLENGE_TEMPLATES.filter(
+    (t) => !isTemplateAvailableToStart(t, challenges, referenceDate) && !active.some((c) => c.template.id === t.id)
+  );
   const earnedBadges = badges.filter((b) => b.earnedAt !== null);
 
   return (
@@ -96,6 +99,29 @@ export default function ChallengesScreen() {
               ))}
             </View>
           </View>
+
+          {coolingDownTemplates.length > 0 ? (
+            <View>
+              <SectionHeader title="Available again soon" />
+              <View style={styles.stack}>
+                {coolingDownTemplates.map((template) => (
+                  <Card key={template.id} style={styles.templateCard}>
+                    <View style={styles.templateHeader}>
+                      <View style={styles.templateText}>
+                        <ThemedText type="smallBold">{template.title}</ThemedText>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          Nice work. You can take this on again in{' '}
+                          {daysUntilTemplateAvailable(template, challenges, referenceDate)} day
+                          {daysUntilTemplateAvailable(template, challenges, referenceDate) === 1 ? '' : 's'}.
+                        </ThemedText>
+                      </View>
+                      <Pill label={`${template.points} pts`} color={theme.brandSecondary} />
+                    </View>
+                  </Card>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {completed.length > 0 ? (
             <View>

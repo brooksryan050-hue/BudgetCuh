@@ -12,14 +12,23 @@ import { supabase } from '@/lib/supabase';
 interface AuthState {
   session: Session | null;
   authInitializing: boolean;
+  /** True from the moment a password-recovery deep link sets a session until the user
+   * actually submits a new password — see auth-deep-link.ts and reset-password.tsx.
+   * Keeps (auth)/_layout.tsx from redirecting a recovery session straight into the
+   * app before the password's actually been changed. */
+  passwordRecovery: boolean;
 }
 
-let state: AuthState = { session: null, authInitializing: true };
+let state: AuthState = { session: null, authInitializing: true, passwordRecovery: false };
 const listeners = new Set<() => void>();
 
 function setState(patch: Partial<AuthState>) {
   state = { ...state, ...patch };
   listeners.forEach((listener) => listener());
+}
+
+export function setPasswordRecoveryPending(pending: boolean) {
+  setState({ passwordRecovery: pending });
 }
 
 supabase.auth.getSession().then(({ data }) => {

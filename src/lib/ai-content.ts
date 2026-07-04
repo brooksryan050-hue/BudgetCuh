@@ -8,6 +8,26 @@ import type { AiNudge, AiReflection, ReflectionPeriodType } from '@/types';
  * outbox/pull system (see CLAUDE.md/plan notes: client-mutable vs server-written).
  */
 
+/**
+ * supabase.functions.invoke's `error` is a FunctionsHttpError wrapping the raw
+ * Response as `.context` — its own `.message` is a generic "Edge Function returned a
+ * non-2xx status code" that hides whatever the function actually reported (auth
+ * failure, no data for the period, a real Claude error, etc). Read the response
+ * body's `error` field so callers can surface what actually went wrong.
+ */
+async function functionErrorMessage(error: unknown): Promise<string> {
+  const context = (error as { context?: Response })?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.json();
+      if (typeof body?.error === 'string') return body.error;
+    } catch {
+      // Response body wasn't JSON (or was already consumed) — fall through.
+    }
+  }
+  return error instanceof Error ? error.message : 'Unknown error';
+}
+
 function nudgeFromRow(row: Record<string, unknown>): AiNudge {
   return {
     id: row.id as string,
@@ -63,7 +83,7 @@ export async function getOrGenerateTodaysNudge(options: { force?: boolean } = {}
   const { data, error } = await supabase.functions.invoke('get-or-generate-nudge', {
     body: { force: options.force ?? false },
   });
-  if (error) throw error;
+  if (error) throw new Error(await functionErrorMessage(error));
   if (!data?.nudge) throw new Error('get-or-generate-nudge returned no nudge.');
   return nudgeFromRow(data.nudge);
 }
@@ -79,7 +99,7 @@ export async function testGenerateReflection(periodType: ReflectionPeriodType): 
   const { error } = await supabase.functions.invoke('get-or-generate-reflection', {
     body: { periodType },
   });
-  if (error) throw error;
+  if (error) throw new Error(await functionErrorMessage(error));
 }
 
 export async function fetchRecentNudges(userId: string, limit = 7): Promise<AiNudge[]> {

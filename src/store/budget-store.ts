@@ -1,8 +1,9 @@
 import { BADGE_CATALOG } from '@/data/badges';
 import { DEFAULT_CATEGORIES } from '@/data/categories';
-import { getChallengeTemplateById } from '@/data/challenge-templates';
+import { CHALLENGE_TEMPLATES, getChallengeTemplateById } from '@/data/challenge-templates';
 import { BADGE_MIN_ACCOUNT_AGE_DAYS, markBadgesEarned, evaluateBadges } from '@/lib/badges';
-import { addDays, toISODate } from '@/lib/dates';
+import { addDays, fromISODate, getMonthRange, isWithinRange, toISODate } from '@/lib/dates';
+import { buildScenarioTransactions, isSimulatedTransaction, type SimScenario } from '@/lib/simulate-scenario';
 import { flushOutboxGuarded } from '@/lib/sync-engine';
 import {
   accountToRow,
@@ -119,6 +120,13 @@ interface BudgetState {
 
   /** Dev-mode helper: jumps points straight to a level's threshold to preview character unlocks. */
   devSetPoints: (points: number) => void;
+  /** Dev-mode helper: replaces any prior simulated history with a fresh 30-day
+   * persona so the AI nudge/reflection pipeline can be tested against real,
+   * data-verifiable extremes instead of waiting on organic usage. */
+  loadSimulatedScenario: (scenario: SimScenario) => void;
+  /** Dev-mode helper: force-completes every challenge template so completion
+   * points/badges/notifications can be previewed on demand. */
+  devCompleteAllChallenges: () => void;
 
   applyRemoteSnapshot: (patch: Partial<BudgetState>) => void;
 
@@ -524,6 +532,50 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
         set({ points });
         get()._runBadgeEvaluation(new Date());
         get()._enqueueProfilePointsSync();
+      },
+
+      loadSimulatedScenario: (scenario) => {
+        const profile = get().profile;
+        if (!profile) return;
+        const referenceDate = new Date();
+
+        // Remove a prior run's rows first (through the real delete path, so balances
+        // unwind correctly) so scenarios don't blend into each other.
+        for (const t of get().transactions.filter(isSimulatedTransaction)) {
+          get().deleteTransaction(t.id);
+        }
+
+        const accountId = get().accounts[0]?.id;
+        for (const input of buildScenarioTransactions(profile.monthlyIncome, scenario, referenceDate)) {
+          get().addTransaction({ ...input, accountId });
+        }
+
+        if (scenario === 'high_spender') {
+          // Seed a couple of near-limit budgets against whatever landed in this
+          // calendar month, so the nudge's "budget near its limit" branch has
+          // something real to point at too.
+          const monthRange = getMonthRange(referenceDate);
+          const spendThisMonth = (categoryId: string) =>
+            get()
+              .transactions.filter(
+                (t) => t.categoryId === categoryId && t.type === 'expense' && isWithinRange(fromISODate(t.date), monthRange)
+              )
+              .reduce((sum, t) => sum + t.amount, 0);
+          for (const categoryId of ['cat-eating-out', 'cat-online-shopping']) {
+            const spend = spendThisMonth(categoryId);
+            if (spend > 0) get().upsertBudget(categoryId, Math.max(50, spend / 0.85));
+          }
+        }
+      },
+
+      devCompleteAllChallenges: () => {
+        for (const template of CHALLENGE_TEMPLATES) {
+          const alreadyDone = get().challenges.some((c) => c.templateId === template.id && c.status === 'completed');
+          if (alreadyDone) continue;
+          const active = get().challenges.find((c) => c.templateId === template.id && c.status === 'active');
+          const instanceId = active ? active.id : get().startChallenge(template.id);
+          if (instanceId) get().claimChallengeReward(instanceId);
+        }
       },
 
       applyRemoteSnapshot: (patch) => set(patch),

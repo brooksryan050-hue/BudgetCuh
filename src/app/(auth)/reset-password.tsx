@@ -10,31 +10,46 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { signInWithEmail } from '@/lib/auth';
+import { updatePassword } from '@/lib/auth';
+import { setPasswordRecoveryPending } from '@/store/auth-store';
 
-export default function SignInScreen() {
+const MIN_PASSWORD_LENGTH = 6;
+
+/**
+ * Only reachable while auth-store's passwordRecovery flag is set (see
+ * (auth)/_layout.tsx) — i.e. the user tapped a real recovery-link email, which set a
+ * temporary session via auth-deep-link.ts. Submitting clears that flag, which lets
+ * the normal session redirect take over and drop them straight into the app.
+ */
+export default function ResetPasswordScreen() {
   const theme = useTheme();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const canSubmit = email.trim().length > 0 && password.length > 0 && !submitting;
+  const canSubmit = password.length >= MIN_PASSWORD_LENGTH && !submitting;
 
-  async function handleSignIn() {
+  async function handleSubmit() {
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
     setError(null);
     setSubmitting(true);
-    const message = await signInWithEmail(email.trim(), password);
+    const message = await updatePassword(password);
     setSubmitting(false);
-    if (message) setError(message);
-    // On success, `session` updates and the (auth)/(tabs)/onboarding redirect gates
-    // take over automatically — no explicit navigation needed here.
+    if (message) {
+      setError(message);
+      return;
+    }
+    setPasswordRecoveryPending(false);
+    // (auth)/_layout.tsx's redirect gate takes over from here.
   }
 
   return (
@@ -47,50 +62,44 @@ export default function SignInScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
             <View style={styles.header}>
               <ThemedText type="title" style={styles.title}>
-                Welcome back
+                Set a new password
               </ThemedText>
               <ThemedText type="default" themeColor="textSecondary">
-                Sign in to sync your budget across devices.
+                Choose a new password for your account.
               </ThemedText>
             </View>
 
             <View style={styles.fields}>
               <View style={styles.field}>
-                <ThemedText type="smallBold">Email</ThemedText>
+                <ThemedText type="smallBold">New password</ThemedText>
                 <TextInput
                   style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-                  placeholder="you@example.com"
-                  placeholderTextColor={theme.textSecondary}
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  returnKeyType="next"
-                />
-              </View>
-
-              <View style={styles.field}>
-                <ThemedText type="smallBold">Password</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-                  placeholder="••••••••"
+                  placeholder="At least 6 characters"
                   placeholderTextColor={theme.textSecondary}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
                   autoCapitalize="none"
-                  autoComplete="password"
-                  returnKeyType="done"
-                  onSubmitEditing={handleSignIn}
+                  autoComplete="new-password"
+                  returnKeyType="next"
                 />
               </View>
 
-              <Pressable onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8}>
-                <ThemedText type="link" themeColor="textSecondary" style={styles.forgotPassword}>
-                  Forgot password?
-                </ThemedText>
-              </Pressable>
+              <View style={styles.field}>
+                <ThemedText type="smallBold">Confirm new password</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                  placeholder="••••••••"
+                  placeholderTextColor={theme.textSecondary}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
+                />
+              </View>
 
               {error ? (
                 <ThemedText type="small" themeColor="danger">
@@ -102,16 +111,10 @@ export default function SignInScreen() {
             <View style={styles.footer}>
               <Pressable
                 disabled={!canSubmit}
-                onPress={handleSignIn}
+                onPress={handleSubmit}
                 style={[styles.button, { backgroundColor: theme.brand }, !canSubmit && styles.disabled]}>
                 <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
-                  {submitting ? 'Signing in…' : 'Sign in'}
-                </ThemedText>
-              </Pressable>
-
-              <Pressable onPress={() => router.replace('/(auth)/sign-up')} hitSlop={8}>
-                <ThemedText type="link" themeColor="textSecondary" style={styles.footerLink}>
-                  Don&apos;t have an account? <ThemedText type="linkPrimary">Sign up</ThemedText>
+                  {submitting ? 'Saving…' : 'Save new password'}
                 </ThemedText>
               </Pressable>
             </View>
@@ -168,11 +171,5 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.4,
-  },
-  footerLink: {
-    textAlign: 'center',
-  },
-  forgotPassword: {
-    textAlign: 'right',
   },
 });

@@ -109,6 +109,12 @@ export default function SignUpScreen() {
                 />
               </View>
 
+              <Pressable onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8}>
+                <ThemedText type="link" themeColor="textSecondary" style={styles.forgotPassword}>
+                  Forgot password?
+                </ThemedText>
+              </Pressable>
+
               {error ? (
                 <ThemedText type="small" themeColor="danger">
                   {error}
@@ -188,5 +194,8 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     textAlign: 'center',
+  },
+  forgotPassword: {
+    textAlign: 'right',
   },
 });

@@ -110,3 +110,43 @@ export function computeChallengeProgress(
     isComplete: pctComplete >= 100,
   };
 }
+
+/**
+ * Challenge templates are meant to be repeatable (points come only from completing
+ * challenges, and the fixed 18-template catalog can't fund every level on its own
+ * otherwise) — but restarting the instant a challenge completes would turn "5 days
+ * no eating out" into an infinitely-clickable points button. A short cooldown after
+ * completion keeps points tied to sustained real behavior instead.
+ */
+export const CHALLENGE_RESTART_COOLDOWN_DAYS = 7;
+
+function mostRecentCompletedInstance(templateId: string, instances: ChallengeInstance[]): ChallengeInstance | undefined {
+  return instances
+    .filter((i) => i.templateId === templateId && i.status === 'completed' && i.completedAt)
+    .sort((a, b) => (b.completedAt! < a.completedAt! ? -1 : 1))[0];
+}
+
+export function isTemplateAvailableToStart(
+  template: ChallengeTemplate,
+  instances: ChallengeInstance[],
+  referenceDate: Date
+): boolean {
+  if (instances.some((i) => i.templateId === template.id && i.status === 'active')) return false;
+  const lastCompleted = mostRecentCompletedInstance(template.id, instances);
+  if (!lastCompleted?.completedAt) return true;
+  return daysBetween(new Date(lastCompleted.completedAt), referenceDate) >= CHALLENGE_RESTART_COOLDOWN_DAYS;
+}
+
+/** Days remaining before a completed-but-cooling-down template can be restarted, or
+ * null if it's already available (or was never completed). */
+export function daysUntilTemplateAvailable(
+  template: ChallengeTemplate,
+  instances: ChallengeInstance[],
+  referenceDate: Date
+): number | null {
+  const lastCompleted = mostRecentCompletedInstance(template.id, instances);
+  if (!lastCompleted?.completedAt) return null;
+  const elapsed = daysBetween(new Date(lastCompleted.completedAt), referenceDate);
+  const remaining = CHALLENGE_RESTART_COOLDOWN_DAYS - elapsed;
+  return remaining > 0 ? remaining : null;
+}
