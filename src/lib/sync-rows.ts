@@ -133,6 +133,8 @@ export function profileToRow(profile: UserProfile, points: number) {
     selected_category_ids: profile.selectedCategoryIds,
     daily_reminder_enabled: profile.dailyReminderEnabled,
     daily_reminder_hour: profile.dailyReminderHour,
+    push_notifications_enabled: profile.pushNotificationsEnabled,
+    expo_push_token: profile.expoPushToken ?? null,
     points,
     created_at: profile.createdAt,
     updated_at: profile.updatedAt,

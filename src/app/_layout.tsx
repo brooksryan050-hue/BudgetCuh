@@ -26,6 +26,8 @@ export default function RootLayout() {
           <Stack.Screen name="transactions" />
           <Stack.Screen name="challenge/[id]" />
           <Stack.Screen name="savings-goals" />
+          <Stack.Screen name="coach" />
+          <Stack.Screen name="reflection" />
           <Stack.Screen name="transaction-form" options={{ presentation: 'modal' }} />
         </Stack>
       ) : (

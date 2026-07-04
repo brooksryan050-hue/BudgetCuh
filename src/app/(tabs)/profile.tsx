@@ -20,6 +20,7 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { pointsForLevel } from '@/lib/gamification';
 import { signOutUser } from '@/lib/auth';
 import { ensureDailyReminderScheduled, formatReminderHour } from '@/lib/notifications-native';
+import { registerForPushNotificationsAsync } from '@/lib/push-notifications';
 import { useLevel } from '@/hooks/use-level';
 import { useStreaks } from '@/hooks/use-streaks';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,6 +45,7 @@ export default function ProfileScreen() {
   const [incomeInput, setIncomeInput] = useState(profile ? `${profile.monthlyIncome}` : '');
   const [confirmResetVisible, setConfirmResetVisible] = useState(false);
   const [devModeEnabled, setDevModeEnabled] = useState(false);
+  const [requestingPush, setRequestingPush] = useState(false);
 
   const [badgeGridWidth, setBadgeGridWidth] = useState(0);
   const badgeColumns = badgeGridWidth > 0 ? Math.max(1, Math.floor((badgeGridWidth + BADGE_GAP) / (BADGE_MIN_WIDTH + BADGE_GAP))) : 0;
@@ -93,6 +95,21 @@ export default function ProfileScreen() {
     if (profile?.dailyReminderEnabled) {
       ensureDailyReminderScheduled(true, hour);
     }
+  }
+
+  async function togglePushNotifications(enabled: boolean) {
+    if (!enabled) {
+      updateProfile({ pushNotificationsEnabled: false });
+      return;
+    }
+    setRequestingPush(true);
+    const token = await registerForPushNotificationsAsync();
+    setRequestingPush(false);
+    if (token) {
+      updateProfile({ pushNotificationsEnabled: true, expoPushToken: token });
+    }
+    // Permission denied or no EAS project id yet — leave the toggle off rather than
+    // claiming a state we can't actually deliver on.
   }
 
   const earnedCount = badges.filter((b) => b.earnedAt !== null).length;
@@ -226,6 +243,19 @@ export default function ProfileScreen() {
                   </View>
                 </>
               ) : null}
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <Pressable
+                style={styles.settingRow}
+                disabled={requestingPush}
+                onPress={() => togglePushNotifications(!(profile?.pushNotificationsEnabled ?? false))}>
+                <View style={styles.notificationLabel}>
+                  <ThemedText type="default">Coaching push notifications</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {requestingPush ? 'Requesting permission…' : 'Get a push when your daily tip is ready.'}
+                  </ThemedText>
+                </View>
+                <Switch value={profile?.pushNotificationsEnabled ?? false} pointerEvents="none" />
+              </Pressable>
             </Card>
           </View>
 

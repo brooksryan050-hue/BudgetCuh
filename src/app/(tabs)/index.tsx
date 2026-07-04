@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AccountBalanceCard } from '@/components/home/account-balance-card';
+import { AiFeaturesSection } from '@/components/home/ai-features-section';
 import { BudgetRemainingCard } from '@/components/home/budget-remaining-card';
 import { HeroStatCard } from '@/components/home/hero-stat-card';
 import { MetricList, type MetricListItem } from '@/components/home/metric-list';
@@ -137,6 +138,8 @@ export default function HomeScreen() {
           <BudgetRemainingCard value={formatter.format(budgetRemaining)} />
 
           <MoneyHealthCard breakdown={healthScore} />
+
+          <AiFeaturesSection />
 
           <View>
             <SectionHeader

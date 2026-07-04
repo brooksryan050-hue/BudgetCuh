@@ -42,6 +42,7 @@ export default function GoalScreen() {
       selectedCategoryIds: draft.selectedCategoryIds,
       dailyReminderEnabled: false,
       dailyReminderHour: 18,
+      pushNotificationsEnabled: false,
     });
     router.replace('/(tabs)');
   }

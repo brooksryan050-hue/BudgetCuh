@@ -153,6 +153,8 @@ function rowToProfile(row: Row): UserProfile {
     selectedCategoryIds: (row.selected_category_ids as string[] | null) ?? [],
     dailyReminderEnabled: row.daily_reminder_enabled as boolean,
     dailyReminderHour: row.daily_reminder_hour as number,
+    pushNotificationsEnabled: (row.push_notifications_enabled as boolean | null) ?? false,
+    expoPushToken: (row.expo_push_token as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

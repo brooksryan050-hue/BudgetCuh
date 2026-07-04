@@ -404,6 +404,22 @@ s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
 
+# AI Edge Functions — invoked by pg_cron/pg_net (see migrations/0002_ai_features.sql),
+# which carries no Supabase JWT. Auth instead comes from the x-cron-secret header,
+# checked against each function's own CRON_SECRET env var.
+[functions.generate-nudges]
+verify_jwt = false
+
+[functions.generate-reflections]
+verify_jwt = false
+
+# Client-callable, authenticated by the caller's own Supabase session JWT (forwarded
+# automatically by supabase.functions.invoke) — verify_jwt = true is the default, but
+# declared explicitly here for symmetry with the two cron-only functions above, so the
+# auth model of each function is visible at a glance.
+[functions.get-or-generate-nudge]
+verify_jwt = true
+
 # pg-delta is the schema diff engine for db diff / db pull / db remote commit.
 # Set enabled = false to fall back to the legacy migra engine.
 [experimental.pgdelta]
