@@ -38,6 +38,15 @@ function generateId(prefix: string): ID {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+const GOAL_TYPE_META: Record<UserProfile['financialGoalType'], { name: string; icon: string }> = {
+  travel: { name: 'Travel', icon: 'airplane' },
+  emergency_fund: { name: 'Emergency fund', icon: 'umbrella' },
+  rent: { name: 'Rent', icon: 'home' },
+  business: { name: 'Business', icon: 'briefcase' },
+  school: { name: 'School', icon: 'school' },
+  general_savings: { name: 'General savings', icon: 'wallet' },
+};
+
 function currentUserId(): string | undefined {
   return useAuthStore.getState().session?.user.id;
 }
@@ -203,8 +212,11 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
         };
 
         // New accounts start completely empty — no fabricated transaction history,
-        // budgets, challenges, or savings goals. Just the profile and one empty
-        // default account (the app assumes at least one account always exists).
+        // budgets, or challenges. Just the profile and one empty default account
+        // (the app assumes at least one account always exists). The savings goal the
+        // user just set during onboarding, though, does become a real SavingsGoal
+        // entity below so it actually shows up on Home instead of only living as
+        // flat fields on the profile.
         const account: Account = {
           id: generateId('account'),
           name: 'Main Account',
@@ -216,13 +228,29 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
           updatedAt: nowIso,
         };
 
+        const savingsGoals: SavingsGoal[] = [];
+        if (profile.savingsGoalAmount > 0) {
+          const meta = GOAL_TYPE_META[profile.financialGoalType];
+          savingsGoals.push({
+            id: generateId('goal'),
+            name: meta.name,
+            icon: meta.icon,
+            targetAmount: profile.savingsGoalAmount,
+            currentAmount: 0,
+            financialGoalType: profile.financialGoalType,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            contributions: [],
+          });
+        }
+
         set({
           profile,
           hasCompletedOnboarding: true,
           transactions: [],
           budgets: [],
           challenges: [],
-          savingsGoals: [],
+          savingsGoals,
           weeklySummaries: [],
           points: 0,
           accounts: [account],
@@ -232,6 +260,11 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
         get()._enqueueSync('profiles', 'upsert', profile.id, profileToRow(profile, get().points));
         const userId = currentUserId();
         if (userId) get()._enqueueSync('accounts', 'upsert', account.id, accountToRow(account, userId));
+        if (userId) {
+          for (const goal of savingsGoals) {
+            get()._enqueueSync('savings_goals', 'upsert', goal.id, savingsGoalToRow(goal, userId));
+          }
+        }
       },
 
       updateProfile: (patch) => {
