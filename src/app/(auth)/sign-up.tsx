@@ -18,7 +18,7 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { signUpWithEmail } from '@/lib/auth';
 
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 
 export default function SignUpScreen() {
   const theme = useTheme();
@@ -82,7 +82,7 @@ export default function SignUpScreen() {
                 <ThemedText type="smallBold">Password</ThemedText>
                 <TextInput
                   style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   placeholderTextColor={theme.textSecondary}
                   value={password}
                   onChangeText={setPassword}

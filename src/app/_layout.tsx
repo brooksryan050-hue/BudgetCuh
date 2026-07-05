@@ -29,12 +29,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="transactions" />
-            <Stack.Screen name="challenge/[id]" />
-            <Stack.Screen name="savings-goals" />
-            <Stack.Screen name="coach" />
-            <Stack.Screen name="reflection" />
-            <Stack.Screen name="transaction-form" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="(protected)" />
           </Stack>
           <NotificationToastHost />
         </>

@@ -18,7 +18,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { updatePassword } from '@/lib/auth';
 import { setPasswordRecoveryPending } from '@/store/auth-store';
 
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * Only reachable while auth-store's passwordRecovery flag is set (see
@@ -74,7 +74,7 @@ export default function ResetPasswordScreen() {
                 <ThemedText type="smallBold">New password</ThemedText>
                 <TextInput
                   style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   placeholderTextColor={theme.textSecondary}
                   value={password}
                   onChangeText={setPassword}

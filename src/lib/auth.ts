@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { useBudgetStore } from '@/store/budget-store';
 
 const ERROR_MESSAGES: Record<string, string> = {
   'Invalid login credentials': 'Incorrect email or password.',
@@ -19,8 +20,14 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return error ? normalizeAuthError(error.message) : null;
 }
 
+/**
+ * Clears the persisted local budget-store cache after signing out, so a previous
+ * user's transactions/goals/reflections don't linger on-device (in AsyncStorage) for
+ * whoever opens the app next on this device — see resetAllData in budget-store.ts.
+ */
 export async function signOutUser(): Promise<void> {
   await supabase.auth.signOut();
+  useBudgetStore.getState().resetAllData();
 }
 
 /**

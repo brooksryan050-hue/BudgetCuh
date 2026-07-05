@@ -351,6 +351,7 @@ export default function ProfileScreen() {
             </ThemedText>
           </Card>
 
+          {__DEV__ ? (
           <View>
             <SectionHeader title="Developer options" />
             <Card style={styles.devCard}>
@@ -493,6 +494,7 @@ export default function ProfileScreen() {
               ) : null}
             </Card>
           </View>
+          ) : null}
 
           <Pressable
             style={[styles.resetButton, { backgroundColor: theme.dangerBackground }]}

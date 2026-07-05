@@ -10,11 +10,15 @@
 //
 // Optional body `{"force": true}` skips the fast path and always regenerates —
 // used by the Profile > Developer options "Regenerate today's nudge" test button so
-// testers aren't stuck with the first nudge generated each day.
+// testers aren't stuck with the first nudge generated each day. `force` is throttled
+// server-side (see cooldownRemainingMs) so it can't be used to spam paid Claude calls.
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { getAuthenticatedUserId } from '../_shared/user-auth.ts';
 import { generateNudgeForUser, type NudgeProfileInput } from '../_shared/nudge-generation.ts';
 import { toISODate } from '../_shared/dates.ts';
+import { cooldownRemainingMs } from '../_shared/rate-limit.ts';
+
+const FORCE_REGENERATE_COOLDOWN_MS = 60_000;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -34,7 +38,8 @@ Deno.serve(async (req) => {
   try {
     userId = await getAuthenticatedUserId(req);
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : 'Auth check failed' }, 500);
+    console.error('get-or-generate-nudge: auth check failed', error);
+    return jsonResponse({ error: 'Auth check failed.' }, 500);
   }
   if (!userId) return jsonResponse({ error: 'Unauthorized' }, 401);
 
@@ -42,16 +47,28 @@ Deno.serve(async (req) => {
   const admin = getAdminClient();
   const today = toISODate(new Date());
 
-  if (!force) {
-    const { data: existing, error: existingError } = await admin
-      .from('ai_nudges')
-      .select('id, generated_date, title, message, tone, created_at')
-      .eq('user_id', userId)
-      .eq('generated_date', today)
-      .maybeSingle();
+  const { data: existing, error: existingError } = await admin
+    .from('ai_nudges')
+    .select('id, generated_date, title, message, tone, created_at')
+    .eq('user_id', userId)
+    .eq('generated_date', today)
+    .maybeSingle();
 
-    if (existingError) return jsonResponse({ error: existingError.message }, 500);
-    if (existing) return jsonResponse({ nudge: existing });
+  if (existingError) {
+    console.error('get-or-generate-nudge: existing lookup failed', existingError);
+    return jsonResponse({ error: 'Could not check for an existing nudge.' }, 500);
+  }
+
+  if (existing && !force) return jsonResponse({ nudge: existing });
+
+  if (existing && force) {
+    const remainingMs = cooldownRemainingMs(existing.created_at, FORCE_REGENERATE_COOLDOWN_MS, new Date());
+    if (remainingMs > 0) {
+      return jsonResponse(
+        { error: `Please wait ${Math.ceil(remainingMs / 1000)}s before regenerating again.` },
+        429
+      );
+    }
   }
 
   const { data: profile, error: profileError } = await admin
@@ -61,11 +78,15 @@ Deno.serve(async (req) => {
     .single();
 
   if (profileError || !profile) {
-    return jsonResponse({ error: profileError?.message ?? 'Profile not found' }, 404);
+    if (profileError) console.error('get-or-generate-nudge: profile lookup failed', profileError);
+    return jsonResponse({ error: 'Profile not found.' }, 404);
   }
 
   const result = await generateNudgeForUser(profile as NudgeProfileInput, new Date());
-  if (!result.ok) return jsonResponse({ error: result.error }, 502);
+  if (!result.ok) {
+    console.error('get-or-generate-nudge: generation failed', result.error);
+    return jsonResponse({ error: 'Could not generate a nudge right now.' }, 502);
+  }
 
   return jsonResponse({
     nudge: {
