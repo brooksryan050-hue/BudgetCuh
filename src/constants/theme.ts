@@ -113,9 +113,9 @@ export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
 
 /**
- * Home's gradient hero is dark-only by design (see useTheme's ThemeOverride) — these
- * stops aren't part of the light/dark palettes above since they never change with the
- * system scheme. Bright palette green at top fading through the deep shades to
- * near-black at the bottom, where it hands off to the solid dark block below it.
+ * Home's gradient hero — these stops aren't part of Colors.dark above since they're
+ * a gradient, not a flat color. Bright palette green at top fading through the deep
+ * shades to near-black at the bottom, ending on Colors.dark.background exactly so the
+ * handoff to the solid dark block below it has no visible seam.
  */
-export const HomeHeroGradient = [Palette[400], Palette[700], Palette[950]] as const;
+export const HomeHeroGradient = [Palette[400], Palette[700], Palette[950], Colors.dark.background] as const;

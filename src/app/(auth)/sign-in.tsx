@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PasswordInput } from '@/components/ui/password-input';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { signInWithEmail } from '@/lib/auth';
@@ -24,6 +25,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !submitting;
 
@@ -67,19 +69,17 @@ export default function SignInScreen() {
                   autoComplete="email"
                   keyboardType="email-address"
                   returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                 />
               </View>
 
               <View style={styles.field}>
                 <ThemedText type="smallBold">Password</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                <PasswordInput
+                  ref={passwordRef}
                   placeholder="••••••••"
-                  placeholderTextColor={theme.textSecondary}
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="password"
                   returnKeyType="done"
                   onSubmitEditing={handleSignIn}

@@ -16,12 +16,15 @@ import { getCategoryById } from '@/data/categories';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import {
   addDays,
+  daysBetween,
   formatMonthLabel,
   formatShortDate,
   formatWeekRangeLabel,
+  fromISODate,
   getMonthRange,
   getWeekRange,
   getWeekdayLabel,
+  isWithinRange,
   toISODate,
 } from '@/lib/dates';
 import { getCurrencyFormatter } from '@/lib/currency';
@@ -64,8 +67,10 @@ export default function TrendsScreen() {
     setSelectedDate((d) => (viewMode === 'month' ? new Date(d.getFullYear(), d.getMonth() + 1, 1) : addDays(d, 7)));
   }
   function switchMode(mode: ViewMode) {
+    // selectedDate already anchors whatever period the user was browsing — reusing it
+    // (rather than resetting to today) means Week keeps a week inside the previously
+    // viewed month and Month keeps the month containing the previously viewed week.
     setViewMode(mode);
-    setSelectedDate(today);
   }
 
   const periodLabel = viewMode === 'month' ? formatMonthLabel(selectedDate) : formatWeekRangeLabel(periodRange);
@@ -98,43 +103,51 @@ export default function TrendsScreen() {
 
   const weekDayBreakdown = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => addDays(periodRange.start, i));
-    return days.map((day) => {
-      const spend = transactions
-        .filter((t) => t.type === 'expense' && t.date === toISODate(day))
-        .reduce((sum, t) => sum + t.amount, 0);
-      return { label: getWeekdayLabel(day), value: spend };
-    });
+    const spendByDate = new Map<string, number>();
+    for (const t of transactions) {
+      if (t.type !== 'expense') continue;
+      if (!isWithinRange(fromISODate(t.date), periodRange)) continue;
+      spendByDate.set(t.date, (spendByDate.get(t.date) ?? 0) + t.amount);
+    }
+    return days.map((day) => ({ label: getWeekdayLabel(day), value: spendByDate.get(toISODate(day)) ?? 0 }));
   }, [transactions, periodRange]);
 
   const monthWeekBreakdown = useMemo(() => {
-    const buckets: { label: string; value: number }[] = [];
-    let weekStart = periodRange.start;
-    let weekNumber = 1;
-    while (weekStart <= periodRange.end) {
-      const weekEndMs = Math.min(addDays(weekStart, 6).getTime(), periodRange.end.getTime());
-      const spend = sumByType(
-        filterByRange(transactions, { start: weekStart, end: new Date(weekEndMs) }),
-        'expense'
-      );
-      buckets.push({ label: `Wk ${weekNumber}`, value: spend });
-      weekStart = addDays(weekStart, 7);
-      weekNumber += 1;
+    const weekCount = Math.ceil((daysBetween(periodRange.start, periodRange.end) + 1) / 7);
+    const buckets = new Array(weekCount).fill(0);
+    for (const t of transactions) {
+      if (t.type !== 'expense') continue;
+      const date = fromISODate(t.date);
+      if (!isWithinRange(date, periodRange)) continue;
+      const weekIndex = Math.floor(daysBetween(periodRange.start, date) / 7);
+      buckets[weekIndex] += t.amount;
     }
-    return buckets;
+    return buckets.map((value, index) => ({ label: `Wk ${index + 1}`, value }));
   }, [transactions, periodRange]);
 
   const incomeVsExpenseData = useMemo(() => {
     const months = 4;
     const anchor = viewMode === 'month' ? selectedDate : periodRange.end;
+    const totalsByMonth = new Map<string, { income: number; expense: number }>();
+    for (const t of transactions) {
+      const date = fromISODate(t.date);
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      const entry = totalsByMonth.get(key) ?? { income: 0, expense: 0 };
+      if (t.type === 'income') entry.income += t.amount;
+      else if (t.type === 'expense') entry.expense += t.amount;
+      totalsByMonth.set(key, entry);
+    }
     return Array.from({ length: months }, (_, i) => {
       const monthOffset = months - 1 - i;
       const monthReference = new Date(anchor.getFullYear(), anchor.getMonth() - monthOffset, 1);
-      const range = getMonthRange(monthReference);
-      const inRange = filterByRange(transactions, range);
+      const totals = totalsByMonth.get(`${monthReference.getFullYear()}-${monthReference.getMonth()}`) ?? {
+        income: 0,
+        expense: 0,
+      };
       return {
         label: monthReference.toLocaleDateString('en-US', { month: 'short' }),
-        a: sumByType(inRange, 'income'),
-        b: sumByType(inRange, 'expense'),
+        a: totals.income,
+        b: totals.expense,
       };
     });
   }, [transactions, viewMode, selectedDate, periodRange]);

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -34,9 +35,10 @@ export default function BudgetScreen() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  const budgetedCategoryIds = new Set(budgets.map((b) => b.categoryId));
-  const availableCategories = DEFAULT_CATEGORIES.filter(
-    (c) => c.kind !== 'income' && !budgetedCategoryIds.has(c.id)
+  const budgetedCategoryIds = useMemo(() => new Set(budgets.map((b) => b.categoryId)), [budgets]);
+  const availableCategories = useMemo(
+    () => DEFAULT_CATEGORIES.filter((c) => c.kind !== 'income' && !budgetedCategoryIds.has(c.id)),
+    [budgetedCategoryIds]
   );
 
   const totalSpent = usages.reduce((sum, u) => sum + u.spent, 0);
@@ -52,6 +54,7 @@ export default function BudgetScreen() {
     const parsed = parseFloat(limitInput);
     if (!editingCategoryId || !Number.isFinite(parsed) || parsed <= 0) return;
     upsertBudget(editingCategoryId, parsed);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setEditingCategoryId(null);
     setLimitInput('');
     setPickerVisible(false);
@@ -61,6 +64,7 @@ export default function BudgetScreen() {
     if (!confirmDeleteId) return;
     const budget = budgets.find((b) => b.categoryId === confirmDeleteId);
     if (budget) removeBudget(budget.id);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     setConfirmDeleteId(null);
     setEditingCategoryId(null);
   }
@@ -75,6 +79,7 @@ export default function BudgetScreen() {
             </ThemedText>
             <Pressable
               style={[styles.addButton, { backgroundColor: theme.brand }]}
+              accessibilityLabel="Add budget"
               onPress={() => setPickerVisible(true)}>
               <Ionicons name="add" size={22} color="#ffffff" />
             </Pressable>

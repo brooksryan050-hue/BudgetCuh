@@ -58,8 +58,17 @@ export default function ChallengeDetailScreen() {
   if (!instance || !template) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
-          <ThemedText>Challenge not found.</ThemedText>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+          <View style={styles.header}>
+            <Pressable hitSlop={8} onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={24} color={theme.text} />
+            </Pressable>
+            <ThemedText type="smallBold">Challenge</ThemedText>
+            <View style={{ width: 24 }} />
+          </View>
+          <View style={styles.notFound}>
+            <ThemedText themeColor="textSecondary">Challenge not found.</ThemedText>
+          </View>
         </SafeAreaView>
       </ThemedView>
     );
@@ -203,6 +212,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.six,
     gap: Spacing.four,
+  },
+  notFound: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
   },
   titleRow: {
     gap: Spacing.two,

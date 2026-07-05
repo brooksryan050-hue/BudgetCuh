@@ -6,8 +6,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   'User already registered': 'An account with this email already exists.',
 };
 
+const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
+
 function normalizeAuthError(message: string): string {
-  return ERROR_MESSAGES[message] ?? message;
+  return ERROR_MESSAGES[message] ?? GENERIC_ERROR_MESSAGE;
 }
 
 export async function signUpWithEmail(email: string, password: string): Promise<string | null> {

@@ -10,6 +10,8 @@ export type OnboardingDraft = {
   name: string;
   currency: string;
   monthlyIncome: string;
+  accountName: string;
+  startingBalance: string;
   selectedCategoryIds: string[];
   financialGoalType: FinancialGoalType | null;
   savingsGoalAmount: string;
@@ -20,6 +22,8 @@ const initialDraft: OnboardingDraft = {
   name: '',
   currency: 'USD',
   monthlyIncome: '',
+  accountName: 'Main Account',
+  startingBalance: '',
   selectedCategoryIds: [],
   financialGoalType: null,
   savingsGoalAmount: '',
@@ -46,7 +50,9 @@ export default function OnboardingLayout() {
     setDraft((prev) => ({ ...prev, ...patch }));
   }
 
-  useSyncBootstrap();
+  // Disabled here: a user still mid-onboarding has no remote data worth pulling, and
+  // (tabs)/_layout.tsx runs its own sync pass once onboarding actually completes.
+  useSyncBootstrap(false);
 
   if (!session) {
     return <Redirect href="/(auth)/sign-in" />;

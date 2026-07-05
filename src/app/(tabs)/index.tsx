@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
+import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -21,7 +23,7 @@ import { InsightCard } from '@/components/insights/insight-card';
 import { NotificationCard } from '@/components/notifications/notification-card';
 import { TransactionRow } from '@/components/transactions/transaction-row';
 import { getCategoryById } from '@/data/categories';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import {
   useMonthlyTotals,
   useMonthOverMonthChange,
@@ -33,8 +35,9 @@ import { useBudgetUsages } from '@/hooks/use-budget-usages';
 import { useMoneyHealthScore } from '@/hooks/use-money-health-score';
 import { useInsights } from '@/hooks/use-insights';
 import { useNotificationCards } from '@/hooks/use-notification-cards';
-import { ThemeOverride, useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/hooks/use-theme';
 import { getCurrencyFormatter } from '@/lib/currency';
+import { refreshSync } from '@/hooks/use-sync-bootstrap';
 import { useBudgetStore } from '@/store/budget-store';
 
 function formatPctChange(pctChange: number): string {
@@ -46,7 +49,22 @@ function formatPctChange(pctChange: number): string {
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const referenceDate = useMemo(() => new Date(), []);
+  const [referenceDate, setReferenceDate] = useState(() => new Date());
+  useFocusEffect(
+    useCallback(() => {
+      setReferenceDate(new Date());
+    }, [])
+  );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshSync();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const profile = useBudgetStore((s) => s.profile);
   const transactions = useBudgetStore((s) => s.transactions);
@@ -57,6 +75,7 @@ export default function HomeScreen() {
 
   const currency = profile?.currency ?? 'USD';
   const formatter = getCurrencyFormatter(currency, 0);
+  const formatAmount = useCallback((amount: number) => formatter.format(amount), [formatter]);
 
   const monthlyTotals = useMonthlyTotals(referenceDate);
   const weeklyTotals = useWeeklyTotals(referenceDate);
@@ -123,52 +142,67 @@ export default function HomeScreen() {
         <ScrollView
           ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
-          <HomeHero
-            balanceLabel="Total balance"
-            balanceValue={formatter.format(totalBalance)}
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-            onStatsPress={() => router.push('/(tabs)/trends')}
-            onLedgerPress={() => router.push('/transactions')}
-            onAccountsPress={scrollToAccounts}
-          />
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.brand} />}>
+          <ThemedView style={styles.heroWrapper}>
+            <HomeHero
+              balanceLabel="Total balance"
+              balanceValue={formatter.format(totalBalance)}
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              onStatsPress={() => router.push('/(tabs)/trends')}
+              onLedgerPress={() => router.push('/transactions')}
+              onAccountsPress={scrollToAccounts}
+            />
+          </ThemedView>
 
-          <ThemeOverride scheme="dark">
-            <ThemedView style={styles.darkBlockOuter}>
-              <View style={styles.darkBlockInner}>
-                <HomeQuickActions />
+          <ThemedView style={styles.darkBlockOuter}>
+            <View style={styles.darkBlockInner}>
+              <HomeQuickActions />
 
-                <View>
-                  <SectionHeader
-                    title={trimmedQuery ? 'Search results' : 'Recent transactions'}
-                    actionLabel={trimmedQuery ? undefined : 'See all'}
-                    onActionPress={trimmedQuery ? undefined : () => router.push('/transactions')}
-                  />
-                  {filteredTransactions.length === 0 ? (
+              <View>
+                <SectionHeader
+                  title={trimmedQuery ? 'Search results' : 'Recent transactions'}
+                  actionLabel={trimmedQuery ? undefined : 'See all'}
+                  onActionPress={trimmedQuery ? undefined : () => router.push('/transactions')}
+                />
+                {filteredTransactions.length === 0 ? (
+                  <View>
                     <EmptyState
                       icon="receipt-outline"
                       title={trimmedQuery ? 'No matching transactions' : 'No transactions yet'}
                     />
-                  ) : (
-                    <Card style={styles.transactionsCard}>
-                      {filteredTransactions.map((transaction) => (
-                        <TransactionRow
-                          key={transaction.id}
-                          transaction={transaction}
-                          currency={currency}
-                          accounts={accounts}
-                          onPress={() =>
-                            router.push({ pathname: '/transaction-form', params: { id: transaction.id } })
-                          }
-                        />
-                      ))}
-                    </Card>
-                  )}
-                </View>
+                    {trimmedQuery ? null : (
+                      <Pressable
+                        style={[styles.addTransactionButton, { backgroundColor: theme.brand }]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                          router.push('/transaction-form');
+                        }}>
+                        <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
+                          Add a transaction
+                        </ThemedText>
+                      </Pressable>
+                    )}
+                  </View>
+                ) : (
+                  <Card style={styles.transactionsCard}>
+                    {filteredTransactions.map((transaction) => (
+                      <TransactionRow
+                        key={transaction.id}
+                        transaction={transaction}
+                        formatAmount={formatAmount}
+                        accounts={accounts}
+                        onPress={() =>
+                          router.push({ pathname: '/transaction-form', params: { id: transaction.id } })
+                        }
+                      />
+                    ))}
+                  </Card>
+                )}
               </View>
-            </ThemedView>
-          </ThemeOverride>
+            </View>
+          </ThemedView>
 
           <View
             style={styles.innerContent}
@@ -257,7 +291,9 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, width: '100%' },
   scrollContent: {
     paddingBottom: Spacing.six,
-    gap: Spacing.four,
+  },
+  heroWrapper: {
+    width: '100%',
   },
   darkBlockOuter: {
     width: '100%',
@@ -290,5 +326,11 @@ const styles = StyleSheet.create({
   },
   transactionsCard: {
     paddingVertical: Spacing.two,
+  },
+  addTransactionButton: {
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two + 2,
+    borderRadius: Radius.md,
   },
 });

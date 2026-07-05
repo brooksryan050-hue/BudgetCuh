@@ -31,26 +31,32 @@ export default function GoalScreen() {
 
   function handleFinish() {
     if (!canFinish || !draft.financialGoalType || !session) return;
-    completeOnboarding({
-      id: session.user.id,
-      name: draft.name.trim(),
-      currency: draft.currency,
-      monthlyIncome: parseFloat(draft.monthlyIncome) || 0,
-      financialGoalType: draft.financialGoalType,
-      savingsGoalAmount: parseFloat(draft.savingsGoalAmount) || 0,
-      savingsGoalCadence: draft.savingsGoalCadence,
-      selectedCategoryIds: draft.selectedCategoryIds,
-      dailyReminderEnabled: false,
-      dailyReminderHour: 18,
-      pushNotificationsEnabled: false,
-    });
+    completeOnboarding(
+      {
+        id: session.user.id,
+        name: draft.name.trim(),
+        currency: draft.currency,
+        monthlyIncome: parseFloat(draft.monthlyIncome) || 0,
+        financialGoalType: draft.financialGoalType,
+        savingsGoalAmount: parseFloat(draft.savingsGoalAmount) || 0,
+        savingsGoalCadence: draft.savingsGoalCadence,
+        selectedCategoryIds: draft.selectedCategoryIds,
+        dailyReminderEnabled: false,
+        dailyReminderHour: 18,
+        pushNotificationsEnabled: false,
+      },
+      {
+        name: draft.accountName.trim() || 'Main Account',
+        balance: parseFloat(draft.startingBalance) || 0,
+      }
+    );
     router.replace('/(tabs)');
   }
 
   return (
     <OnboardingScaffold
-      step={3}
-      totalSteps={4}
+      step={4}
+      totalSteps={5}
       title="What are you saving for?"
       subtitle="Choose your main goal and how much you'd like to save."
       continueLabel="Finish setup"
@@ -76,6 +82,11 @@ export default function GoalScreen() {
           );
         })}
       </View>
+      {draft.financialGoalType === null ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Choose a goal to continue
+        </ThemedText>
+      ) : null}
 
       <View style={styles.field}>
         <ThemedText type="smallBold">Savings target</ThemedText>
@@ -86,7 +97,13 @@ export default function GoalScreen() {
           value={draft.savingsGoalAmount}
           onChangeText={(savingsGoalAmount) => updateDraft({ savingsGoalAmount })}
           keyboardType="decimal-pad"
+          returnKeyType="done"
         />
+        {draft.financialGoalType !== null && !(parseFloat(draft.savingsGoalAmount) > 0) ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Enter a savings target to continue
+          </ThemedText>
+        ) : null}
       </View>
 
       <View style={styles.field}>

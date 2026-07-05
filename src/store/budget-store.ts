@@ -1,9 +1,8 @@
 import { BADGE_CATALOG } from '@/data/badges';
 import { DEFAULT_CATEGORIES } from '@/data/categories';
-import { CHALLENGE_TEMPLATES, getChallengeTemplateById } from '@/data/challenge-templates';
+import { getChallengeTemplateById } from '@/data/challenge-templates';
 import { BADGE_MIN_ACCOUNT_AGE_DAYS, markBadgesEarned, evaluateBadges } from '@/lib/badges';
-import { addDays, fromISODate, getMonthRange, isWithinRange, toISODate } from '@/lib/dates';
-import { buildScenarioTransactions, isSimulatedTransaction, type SimScenario } from '@/lib/simulate-scenario';
+import { addDays, toISODate } from '@/lib/dates';
 import { flushOutboxGuarded } from '@/lib/sync-engine';
 import {
   accountToRow,
@@ -94,10 +93,17 @@ interface BudgetState {
   accounts: Account[];
   syncOutbox: SyncOp[];
 
-  completeOnboarding: (profile: Omit<UserProfile, 'createdAt' | 'updatedAt'>) => void;
+  completeOnboarding: (
+    profile: Omit<UserProfile, 'createdAt' | 'updatedAt'>,
+    initialAccount?: { name: string; balance: number }
+  ) => void;
   updateProfile: (patch: Partial<UserProfile>) => void;
 
   addTransaction: (input: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => ID;
+  /** Same as calling addTransaction in a loop, but runs the O(n) badge evaluation
+   * scan exactly once at the end instead of once per item — use for any bulk-add
+   * path (e.g. receipt scanning) instead of looping addTransaction. */
+  addTransactions: (inputs: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>[]) => ID[];
   updateTransaction: (id: ID, patch: Partial<Transaction>) => void;
   deleteTransaction: (id: ID) => void;
 
@@ -126,16 +132,6 @@ interface BudgetState {
 
   closeOutWeek: (weeklySummary: WeeklySummary) => void;
   resetAllData: () => void;
-
-  /** Dev-mode helper: jumps points straight to a level's threshold to preview character unlocks. */
-  devSetPoints: (points: number) => void;
-  /** Dev-mode helper: replaces any prior simulated history with a fresh 30-day
-   * persona so the AI nudge/reflection pipeline can be tested against real,
-   * data-verifiable extremes instead of waiting on organic usage. */
-  loadSimulatedScenario: (scenario: SimScenario) => void;
-  /** Dev-mode helper: force-completes every challenge template so completion
-   * points/badges/notifications can be previewed on demand. */
-  devCompleteAllChallenges: () => void;
 
   applyRemoteSnapshot: (patch: Partial<BudgetState>) => void;
 
@@ -202,7 +198,7 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
     hasHydrated: false,
     ...initialEntityState,
 
-    completeOnboarding: (profileInput) => {
+    completeOnboarding: (profileInput, initialAccount) => {
         const now = new Date();
         const nowIso = now.toISOString();
         const profile: UserProfile = {
@@ -211,19 +207,19 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
           updatedAt: nowIso,
         };
 
-        // New accounts start completely empty — no fabricated transaction history,
-        // budgets, or challenges. Just the profile and one empty default account
-        // (the app assumes at least one account always exists). The savings goal the
-        // user just set during onboarding, though, does become a real SavingsGoal
-        // entity below so it actually shows up on Home instead of only living as
-        // flat fields on the profile.
+        // New accounts start with no fabricated transaction history, budgets, or
+        // challenges — just the profile and one account (the app assumes at least
+        // one account always exists), seeded from what the user entered during
+        // onboarding's account step. The savings goal the user just set, though,
+        // does become a real SavingsGoal entity below so it actually shows up on
+        // Home instead of only living as flat fields on the profile.
         const account: Account = {
           id: generateId('account'),
-          name: 'Main Account',
+          name: initialAccount?.name.trim() || 'Main Account',
           icon: 'wallet',
           color: '#3C87F7',
           currency: profile.currency,
-          balance: 0,
+          balance: initialAccount?.balance ?? 0,
           createdAt: nowIso,
           updatedAt: nowIso,
         };
@@ -290,6 +286,40 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
           get()._enqueueAccountSync(resolveAccountId(get().accounts, transaction.accountId));
         }
         return id;
+      },
+
+      addTransactions: (inputs) => {
+        if (inputs.length === 0) return [];
+        const now = new Date().toISOString();
+        const newTransactions: Transaction[] = inputs.map((input) => ({
+          ...input,
+          id: generateId('txn'),
+          createdAt: now,
+          updatedAt: now,
+        }));
+        set((state) => {
+          let accounts = state.accounts;
+          for (const transaction of newTransactions) {
+            accounts = applyBalanceDelta(accounts, transaction.accountId, signedAmount(transaction), now);
+          }
+          // Reversed so the final order matches what calling addTransaction once per
+          // item (each prepending to the front) would have produced.
+          return {
+            transactions: [...newTransactions.slice().reverse(), ...state.transactions],
+            accounts,
+          };
+        });
+        get()._runBadgeEvaluation(new Date());
+        const userId = currentUserId();
+        if (userId) {
+          const touchedAccountIds = new Set<ID | undefined>();
+          for (const transaction of newTransactions) {
+            get()._enqueueSync('transactions', 'upsert', transaction.id, transactionToRow(transaction, userId));
+            touchedAccountIds.add(resolveAccountId(get().accounts, transaction.accountId));
+          }
+          touchedAccountIds.forEach((accountId) => get()._enqueueAccountSync(accountId));
+        }
+        return newTransactions.map((t) => t.id);
       },
 
       updateTransaction: (id, patch) => {
@@ -560,56 +590,6 @@ export const useBudgetStore = createPersistedStore<BudgetState>(
       },
 
       resetAllData: () => set({ ...initialEntityState }),
-
-      devSetPoints: (points) => {
-        set({ points });
-        get()._runBadgeEvaluation(new Date());
-        get()._enqueueProfilePointsSync();
-      },
-
-      loadSimulatedScenario: (scenario) => {
-        const profile = get().profile;
-        if (!profile) return;
-        const referenceDate = new Date();
-
-        // Remove a prior run's rows first (through the real delete path, so balances
-        // unwind correctly) so scenarios don't blend into each other.
-        for (const t of get().transactions.filter(isSimulatedTransaction)) {
-          get().deleteTransaction(t.id);
-        }
-
-        const accountId = get().accounts[0]?.id;
-        for (const input of buildScenarioTransactions(profile.monthlyIncome, scenario, referenceDate)) {
-          get().addTransaction({ ...input, accountId });
-        }
-
-        if (scenario === 'high_spender') {
-          // Seed a couple of near-limit budgets against whatever landed in this
-          // calendar month, so the nudge's "budget near its limit" branch has
-          // something real to point at too.
-          const monthRange = getMonthRange(referenceDate);
-          const spendThisMonth = (categoryId: string) =>
-            get()
-              .transactions.filter(
-                (t) => t.categoryId === categoryId && t.type === 'expense' && isWithinRange(fromISODate(t.date), monthRange)
-              )
-              .reduce((sum, t) => sum + t.amount, 0);
-          for (const categoryId of ['cat-eating-out', 'cat-online-shopping']) {
-            const spend = spendThisMonth(categoryId);
-            if (spend > 0) get().upsertBudget(categoryId, Math.max(50, spend / 0.85));
-          }
-        }
-      },
-
-      devCompleteAllChallenges: () => {
-        for (const template of CHALLENGE_TEMPLATES) {
-          const alreadyDone = get().challenges.some((c) => c.templateId === template.id && c.status === 'completed');
-          if (alreadyDone) continue;
-          const active = get().challenges.find((c) => c.templateId === template.id && c.status === 'active');
-          const instanceId = active ? active.id : get().startChallenge(template.id);
-          if (instanceId) get().claimChallengeReward(instanceId);
-        }
-      },
 
       applyRemoteSnapshot: (patch) => set(patch),
 

@@ -58,9 +58,11 @@ export default function SavingsGoalsScreen() {
   const [hasDeadline, setHasDeadline] = useState(false);
   const [deadline, setDeadline] = useState<ISODate>(toISODate(addDays(today, 90)));
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [contributeGoalId, setContributeGoalId] = useState<string | null>(null);
   const [contributeAmount, setContributeAmount] = useState('');
+  const [contributeError, setContributeError] = useState<string | null>(null);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
 
   const contributingGoal = useMemo(
@@ -75,6 +77,7 @@ export default function SavingsGoalsScreen() {
     setSelectedIcon(GOAL_ICONS[5].icon);
     setHasDeadline(false);
     setDeadline(toISODate(addDays(today, 90)));
+    setFormError(null);
     setFormVisible(true);
   }
 
@@ -87,12 +90,25 @@ export default function SavingsGoalsScreen() {
     setSelectedIcon(goal.icon);
     setHasDeadline(!!goal.deadline);
     setDeadline(goal.deadline ?? toISODate(addDays(today, 90)));
+    setFormError(null);
     setFormVisible(true);
   }
 
+  function closeForm() {
+    setFormVisible(false);
+    setFormError(null);
+  }
+
   function handleSubmitForm() {
+    if (!name.trim()) {
+      setFormError('Give this goal a name.');
+      return;
+    }
     const parsed = parseFloat(targetAmount);
-    if (!name.trim() || !Number.isFinite(parsed) || parsed <= 0) return;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setFormError('Enter a target amount greater than 0.');
+      return;
+    }
 
     const payload = {
       name: name.trim(),
@@ -106,25 +122,30 @@ export default function SavingsGoalsScreen() {
     } else {
       addSavingsGoal(payload);
     }
-    setFormVisible(false);
+    closeForm();
   }
 
   function handleDeleteGoal() {
     if (!editingGoalId) return;
     deleteSavingsGoal(editingGoalId);
     setConfirmDeleteVisible(false);
-    setFormVisible(false);
+    closeForm();
   }
 
   function handleContribute() {
     const parsed = parseFloat(contributeAmount);
-    if (!contributingGoal || !Number.isFinite(parsed) || parsed <= 0) return;
+    if (!contributingGoal) return;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setContributeError('Enter an amount greater than 0.');
+      return;
+    }
 
     const wasBelowTarget = contributingGoal.currentAmount < contributingGoal.targetAmount;
     const willReachTarget = contributingGoal.currentAmount + parsed >= contributingGoal.targetAmount;
 
     contributeSavingsGoal(contributingGoal.id, parsed, toISODate(new Date()));
     setContributeAmount('');
+    setContributeError(null);
     setContributeGoalId(null);
 
     if (wasBelowTarget && willReachTarget) {
@@ -160,7 +181,10 @@ export default function SavingsGoalsScreen() {
                 key={goal.id}
                 goal={goal}
                 currency={currency}
-                onPress={() => setContributeGoalId(goal.id)}
+                onPress={() => {
+                  setContributeError(null);
+                  setContributeGoalId(goal.id);
+                }}
                 onEdit={() => openEditForm(goal.id)}
               />
             ))
@@ -168,14 +192,19 @@ export default function SavingsGoalsScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <Modal visible={formVisible} transparent animationType="slide" onRequestClose={() => setFormVisible(false)}>
+      <Modal visible={formVisible} transparent animationType="slide" onRequestClose={closeForm}>
         <KeyboardAvoidingView
           style={styles.overlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setFormVisible(false)}>
+          <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={closeForm}>
             <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <ThemedText type="subtitle">{editingGoalId ? 'Edit savings goal' : 'New savings goal'}</ThemedText>
+              <View style={styles.sheetHeader}>
+                <ThemedText type="subtitle">{editingGoalId ? 'Edit savings goal' : 'New savings goal'}</ThemedText>
+                <Pressable hitSlop={8} onPress={closeForm}>
+                  <Ionicons name="close" size={22} color={theme.textSecondary} />
+                </Pressable>
+              </View>
               <View style={styles.iconRow}>
                 {GOAL_ICONS.map(({ icon }) => (
                   <Pressable
@@ -232,6 +261,12 @@ export default function SavingsGoalsScreen() {
                 />
               ) : null}
 
+              {formError ? (
+                <ThemedText type="small" style={{ color: theme.danger }}>
+                  {formError}
+                </ThemedText>
+              ) : null}
+
               <Pressable style={[styles.primaryButton, { backgroundColor: theme.brand }]} onPress={handleSubmitForm}>
                 <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
                   {editingGoalId ? 'Save changes' : 'Create goal'}
@@ -257,15 +292,33 @@ export default function SavingsGoalsScreen() {
         visible={contributeGoalId !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setContributeGoalId(null)}>
+        onRequestClose={() => {
+          setContributeError(null);
+          setContributeGoalId(null);
+        }}>
         <KeyboardAvoidingView
           style={styles.overlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setContributeGoalId(null)}>
+          <Pressable
+            style={[styles.overlay, { backgroundColor: theme.overlay }]}
+            onPress={() => {
+              setContributeError(null);
+              setContributeGoalId(null);
+            }}>
             <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
               {contributingGoal ? (
                 <>
-                  <ThemedText type="subtitle">Add to {contributingGoal.name}</ThemedText>
+                  <View style={styles.sheetHeader}>
+                    <ThemedText type="subtitle">Add to {contributingGoal.name}</ThemedText>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => {
+                        setContributeError(null);
+                        setContributeGoalId(null);
+                      }}>
+                      <Ionicons name="close" size={22} color={theme.textSecondary} />
+                    </Pressable>
+                  </View>
                   <TextInput
                     style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
                     placeholder="0.00"
@@ -275,6 +328,11 @@ export default function SavingsGoalsScreen() {
                     keyboardType="decimal-pad"
                     autoFocus
                   />
+                  {contributeError ? (
+                    <ThemedText type="small" style={{ color: theme.danger }}>
+                      {contributeError}
+                    </ThemedText>
+                  ) : null}
                   <Pressable style={[styles.primaryButton, { backgroundColor: theme.success }]} onPress={handleContribute}>
                     <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
                       Add contribution
@@ -333,6 +391,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.xl,
     padding: Spacing.four,
     gap: Spacing.two,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   iconRow: {
     flexDirection: 'row',

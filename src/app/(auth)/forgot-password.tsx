@@ -75,17 +75,34 @@ export default function ForgotPasswordScreen() {
                     onSubmitEditing={handleSend}
                   />
                 </View>
-
-                {error ? (
-                  <ThemedText type="small" themeColor="danger">
-                    {error}
-                  </ThemedText>
-                ) : null}
               </View>
             )}
 
+            {error ? (
+              <ThemedText type="small" themeColor="danger" style={styles.footerLink}>
+                {error}
+              </ThemedText>
+            ) : null}
+
             <View style={styles.footer}>
-              {sent ? null : (
+              {sent ? (
+                <>
+                  <Pressable disabled={submitting} onPress={handleSend} hitSlop={8}>
+                    <ThemedText type="link" themeColor="textSecondary" style={styles.footerLink}>
+                      {submitting ? (
+                        'Sending…'
+                      ) : (
+                        <>Didn&apos;t get it? <ThemedText type="linkPrimary">Resend</ThemedText></>
+                      )}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable onPress={() => setSent(false)} hitSlop={8}>
+                    <ThemedText type="link" themeColor="textSecondary" style={styles.footerLink}>
+                      Wrong email? <ThemedText type="linkPrimary">Edit email</ThemedText>
+                    </ThemedText>
+                  </Pressable>
+                </>
+              ) : (
                 <Pressable
                   disabled={!canSubmit}
                   onPress={handleSend}

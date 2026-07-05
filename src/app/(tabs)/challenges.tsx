@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -30,9 +31,16 @@ export default function ChallengesScreen() {
   const active = challengesWithProgress.filter((c) => c.instance.status === 'active');
   const completed = challengesWithProgress.filter((c) => c.instance.status === 'completed');
 
-  const availableTemplates = CHALLENGE_TEMPLATES.filter((t) => isTemplateAvailableToStart(t, challenges, referenceDate));
-  const coolingDownTemplates = CHALLENGE_TEMPLATES.filter(
-    (t) => !isTemplateAvailableToStart(t, challenges, referenceDate) && !active.some((c) => c.template.id === t.id)
+  const availableTemplates = useMemo(
+    () => CHALLENGE_TEMPLATES.filter((t) => isTemplateAvailableToStart(t, challenges, referenceDate)),
+    [challenges, referenceDate]
+  );
+  const coolingDownTemplates = useMemo(
+    () =>
+      CHALLENGE_TEMPLATES.filter(
+        (t) => !isTemplateAvailableToStart(t, challenges, referenceDate) && !active.some((c) => c.template.id === t.id)
+      ),
+    [challenges, referenceDate, active]
   );
   const earnedBadges = badges.filter((b) => b.earnedAt !== null);
 
@@ -94,7 +102,14 @@ export default function ChallengesScreen() {
                     </View>
                     <Pill label={`${template.points} pts`} selected color={theme.brandSecondary} />
                   </View>
-                  <Pill label="Start challenge" selected onPress={() => startChallenge(template.id)} />
+                  <Pill
+                    label="Start challenge"
+                    selected
+                    onPress={() => {
+                      startChallenge(template.id);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                    }}
+                  />
                 </Card>
               ))}
             </View>
@@ -104,21 +119,24 @@ export default function ChallengesScreen() {
             <View>
               <SectionHeader title="Available again soon" />
               <View style={styles.stack}>
-                {coolingDownTemplates.map((template) => (
-                  <Card key={template.id} style={styles.templateCard}>
-                    <View style={styles.templateHeader}>
-                      <View style={styles.templateText}>
-                        <ThemedText type="smallBold">{template.title}</ThemedText>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          Nice work. You can take this on again in{' '}
-                          {daysUntilTemplateAvailable(template, challenges, referenceDate)} day
-                          {daysUntilTemplateAvailable(template, challenges, referenceDate) === 1 ? '' : 's'}.
-                        </ThemedText>
+                {coolingDownTemplates.map((template) => {
+                  const daysUntilAvailable = daysUntilTemplateAvailable(template, challenges, referenceDate);
+                  return (
+                    <Card key={template.id} style={styles.templateCard}>
+                      <View style={styles.templateHeader}>
+                        <View style={styles.templateText}>
+                          <ThemedText type="smallBold">{template.title}</ThemedText>
+                          <ThemedText type="small" themeColor="textSecondary">
+                            Nice work. You can take this on again in{' '}
+                            {daysUntilAvailable} day
+                            {daysUntilAvailable === 1 ? '' : 's'}.
+                          </ThemedText>
+                        </View>
+                        <Pill label={`${template.points} pts`} color={theme.brandSecondary} />
                       </View>
-                      <Pill label={`${template.points} pts`} color={theme.brandSecondary} />
-                    </View>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </View>
             </View>
           ) : null}

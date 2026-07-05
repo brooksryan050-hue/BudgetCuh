@@ -17,10 +17,10 @@ export default function AboutYouScreen() {
   return (
     <OnboardingScaffold
       step={1}
-      totalSteps={4}
+      totalSteps={5}
       title="Tell us about you"
       subtitle="This helps us tailor budgets and challenges to your income."
-      onContinue={() => router.push('/onboarding/categories')}
+      onContinue={() => router.push('/onboarding/account')}
       continueDisabled={!canContinue}>
       <View style={styles.field}>
         <ThemedText type="smallBold">Your name</ThemedText>
@@ -31,7 +31,13 @@ export default function AboutYouScreen() {
           value={draft.name}
           onChangeText={(name) => updateDraft({ name })}
           returnKeyType="next"
+          autoFocus
         />
+        {draft.name.trim().length === 0 ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Enter your name to continue
+          </ThemedText>
+        ) : null}
       </View>
 
       <View style={styles.field}>
@@ -50,6 +56,11 @@ export default function AboutYouScreen() {
           keyboardType="decimal-pad"
           returnKeyType="done"
         />
+        {draft.name.trim().length > 0 && !(parseFloat(draft.monthlyIncome) > 0) ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Enter your monthly income to continue
+          </ThemedText>
+        ) : null}
       </View>
     </OnboardingScaffold>
   );

@@ -26,7 +26,7 @@ export default function CoachScreen() {
   const theme = useTheme();
   const referenceDate = useMemo(() => new Date(), []);
   const { dailyDisciplineStreak } = useStreaks(referenceDate);
-  const { nudge, loading, generating, refresh } = useLatestNudge({ fillInIfMissing: true });
+  const { nudge, loading, generating, error, refresh } = useLatestNudge({ fillInIfMissing: true });
   const { nudges: recentNudges } = useRecentNudges();
 
   const history = recentNudges.filter((n) => n.id !== nudge?.id);
@@ -80,6 +80,12 @@ export default function CoachScreen() {
               </View>
               <ThemedText type="default">{nudge.message}</ThemedText>
             </Card>
+          ) : !generating && error ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Couldn't load your coach right now"
+              message="Something went wrong fetching your tip — try again later."
+            />
           ) : !generating ? (
             <EmptyState
               icon="chatbubble-ellipses-outline"

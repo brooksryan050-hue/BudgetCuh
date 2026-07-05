@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PasswordInput } from '@/components/ui/password-input';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { updatePassword } from '@/lib/auth';
@@ -32,6 +33,7 @@ export default function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   const canSubmit = password.length >= MIN_PASSWORD_LENGTH && !submitting;
 
@@ -72,29 +74,23 @@ export default function ResetPasswordScreen() {
             <View style={styles.fields}>
               <View style={styles.field}>
                 <ThemedText type="smallBold">New password</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                <PasswordInput
                   placeholder="At least 8 characters"
-                  placeholderTextColor={theme.textSecondary}
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="new-password"
                   returnKeyType="next"
+                  onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                 />
               </View>
 
               <View style={styles.field}>
                 <ThemedText type="smallBold">Confirm new password</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                <PasswordInput
+                  ref={confirmPasswordRef}
                   placeholder="••••••••"
-                  placeholderTextColor={theme.textSecondary}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="new-password"
                   returnKeyType="done"
                   onSubmitEditing={handleSubmit}

@@ -35,7 +35,7 @@ export default function ReflectionScreen() {
   const formatter = getCurrencyFormatter(currency, 0);
 
   const [periodType, setPeriodType] = useState<ReflectionPeriodType>('weekly');
-  const { reflections, loading, refresh } = useReflections(periodType);
+  const { reflections, loading, error, refresh } = useReflections(periodType);
 
   return (
     <ThemedView style={styles.container}>
@@ -71,7 +71,13 @@ export default function ReflectionScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.textSecondary} />}>
-          {reflections.length === 0 ? (
+          {reflections.length === 0 && error ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Couldn't load your reflections"
+              message="Something went wrong fetching these — try again later."
+            />
+          ) : reflections.length === 0 ? (
             <EmptyState
               icon="book-outline"
               title={`No ${periodType} reflections yet`}

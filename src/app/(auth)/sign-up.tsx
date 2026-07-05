@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PasswordInput } from '@/components/ui/password-input';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { signUpWithEmail } from '@/lib/auth';
@@ -27,9 +28,12 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   const canSubmit =
     email.trim().length > 0 && password.length >= MIN_PASSWORD_LENGTH && !submitting;
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
   async function handleSignUp() {
     if (password !== confirmPassword) {
@@ -75,38 +79,39 @@ export default function SignUpScreen() {
                   autoComplete="email"
                   keyboardType="email-address"
                   returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                 />
               </View>
 
               <View style={styles.field}>
                 <ThemedText type="smallBold">Password</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                <PasswordInput
+                  ref={passwordRef}
                   placeholder="At least 8 characters"
-                  placeholderTextColor={theme.textSecondary}
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="new-password"
                   returnKeyType="next"
+                  onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                 />
               </View>
 
               <View style={styles.field}>
                 <ThemedText type="smallBold">Confirm password</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+                <PasswordInput
+                  ref={confirmPasswordRef}
                   placeholder="••••••••"
-                  placeholderTextColor={theme.textSecondary}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
                   autoComplete="new-password"
                   returnKeyType="done"
                   onSubmitEditing={handleSignUp}
                 />
+                {passwordsMismatch ? (
+                  <ThemedText type="small" themeColor="danger">
+                    Passwords do not match.
+                  </ThemedText>
+                ) : null}
               </View>
 
               <Pressable onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8}>

@@ -26,8 +26,8 @@ export default function CategoriesScreen() {
 
   return (
     <OnboardingScaffold
-      step={2}
-      totalSteps={4}
+      step={3}
+      totalSteps={5}
       title="What do you spend on?"
       subtitle="Pick your main spending categories — you can always add more later."
       onContinue={() => router.push('/onboarding/goal')}

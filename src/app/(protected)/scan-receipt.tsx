@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -68,12 +68,13 @@ export default function ScanReceiptScreen() {
   const theme = useTheme();
   const profile = useBudgetStore((s) => s.profile);
   const accounts = useBudgetStore((s) => s.accounts);
-  const addTransaction = useBudgetStore((s) => s.addTransaction);
+  const addTransactions = useBudgetStore((s) => s.addTransactions);
 
   const homeCurrency = profile?.currency ?? 'USD';
 
   const [phase, setPhase] = useState<Phase>('capture');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [useConverted, setUseConverted] = useState(true);
@@ -85,6 +86,7 @@ export default function ScanReceiptScreen() {
   async function processAsset(uri: string) {
     setPhase('processing');
     setErrorMessage(null);
+    setPermissionDenied(false);
     try {
       const context = ImageManipulator.manipulate(uri);
       context.resize({ width: MAX_IMAGE_WIDTH });
@@ -97,14 +99,21 @@ export default function ScanReceiptScreen() {
         return;
       }
 
-      const result = await scanReceipt({
-        imageBase64: saved.base64,
-        mediaType: 'image/jpeg',
-        homeCurrency,
-      });
+      let result: ParsedReceipt;
+      try {
+        result = await scanReceipt({
+          imageBase64: saved.base64,
+          mediaType: 'image/jpeg',
+          homeCurrency,
+        });
+      } catch {
+        setErrorMessage("Couldn't reach the scanner — check your connection and try again.");
+        setPhase('error');
+        return;
+      }
 
       if (!result.readable || result.items.length === 0) {
-        setErrorMessage("Couldn't read that receipt — try a clearer, well-lit photo, or enter it manually.");
+        setErrorMessage("Couldn't read that receipt — try retaking the photo somewhere well-lit, or enter it manually.");
         setPhase('error');
         return;
       }
@@ -113,8 +122,8 @@ export default function ScanReceiptScreen() {
       setUseConverted(Boolean(result.conversion));
       setCandidates(candidatesFromReceipt(result, Boolean(result.conversion)));
       setPhase('review');
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Couldn't read that receipt right now.");
+    } catch {
+      setErrorMessage("Couldn't process that photo. Please try again.");
       setPhase('error');
     }
   }
@@ -124,6 +133,7 @@ export default function ScanReceiptScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       setErrorMessage('Camera access is needed to scan a receipt.');
+      setPermissionDenied(true);
       setPhase('error');
       return;
     }
@@ -139,6 +149,7 @@ export default function ScanReceiptScreen() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       setErrorMessage('Photo library access is needed to scan a receipt.');
+      setPermissionDenied(true);
       setPhase('error');
       return;
     }
@@ -170,18 +181,18 @@ export default function ScanReceiptScreen() {
     if (toAdd.length === 0) return;
 
     setIsSaving(true);
-    for (const candidate of toAdd) {
-      addTransaction({
+    addTransactions(
+      toAdd.map((candidate) => ({
         amount: parseFloat(candidate.amount),
-        type: 'expense',
+        type: 'expense' as const,
         categoryId: candidate.categoryId,
         date,
         notes: candidate.note.trim() || undefined,
-        paymentMethod: 'card',
+        paymentMethod: 'card' as const,
         isRecurring: false,
         accountId,
-      });
-    }
+      }))
+    );
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     playTransactionAddedSound();
     router.dismiss(2);
@@ -251,16 +262,38 @@ export default function ScanReceiptScreen() {
                 style={[styles.captureButton, { backgroundColor: theme.backgroundElement }]}
                 onPress={() => {
                   tap();
+                  setPermissionDenied(false);
                   setPhase('capture');
                 }}>
                 <Ionicons name="refresh" size={20} color={theme.text} />
                 <ThemedText type="smallBold">Try again</ThemedText>
               </Pressable>
+              {permissionDenied ? (
+                <Pressable
+                  style={[styles.captureButton, { backgroundColor: theme.backgroundElement }]}
+                  onPress={() => {
+                    tap();
+                    Linking.openSettings();
+                  }}>
+                  <Ionicons name="settings-outline" size={20} color={theme.text} />
+                  <ThemedText type="smallBold">Open Settings</ThemedText>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
           {phase === 'review' && receipt ? (
             <View style={styles.reviewBlock}>
+              <Pressable
+                style={[styles.retakeButton, { backgroundColor: theme.backgroundElement }]}
+                onPress={() => {
+                  tap();
+                  handleTakePhoto();
+                }}>
+                <Ionicons name="camera-reverse-outline" size={18} color={theme.text} />
+                <ThemedText type="smallBold">Retake photo</ThemedText>
+              </Pressable>
+
               <View style={[styles.merchantCard, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText type="smallBold">{receipt.merchant ?? 'Receipt'}</ThemedText>
                 {receipt.receiptDate ? (
@@ -432,6 +465,16 @@ const styles = StyleSheet.create({
   },
   reviewBlock: {
     gap: Spacing.three,
+  },
+  retakeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.md,
   },
   merchantCard: {
     padding: Spacing.three,

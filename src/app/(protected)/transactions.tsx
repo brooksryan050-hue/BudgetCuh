@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { TransactionRow } from '@/components/transactions/transaction-row';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { formatFullDate, fromISODate } from '@/lib/dates';
+import { getCurrencyFormatter } from '@/lib/currency';
 import { useTheme } from '@/hooks/use-theme';
 import { useBudgetStore } from '@/store/budget-store';
 import type { Transaction } from '@/types';
@@ -20,6 +21,10 @@ export default function TransactionsScreen() {
   const profile = useBudgetStore((s) => s.profile);
   const accounts = useBudgetStore((s) => s.accounts);
 
+  const currency = profile?.currency ?? 'USD';
+  const formatter = useMemo(() => getCurrencyFormatter(currency), [currency]);
+  const formatAmount = useMemo(() => (amount: number) => formatter.format(amount), [formatter]);
+
   const sections = useMemo(() => {
     const grouped: Record<string, Transaction[]> = {};
     for (const transaction of transactions) {
@@ -28,7 +33,10 @@ export default function TransactionsScreen() {
     }
     return Object.entries(grouped)
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, items]) => ({ title: date, data: items }));
+      .map(([date, items]) => ({
+        title: date,
+        data: items.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+      }));
   }, [transactions]);
 
   return (
@@ -58,7 +66,7 @@ export default function TransactionsScreen() {
           renderItem={({ item }) => (
             <TransactionRow
               transaction={item}
-              currency={profile?.currency ?? 'USD'}
+              formatAmount={formatAmount}
               accounts={accounts}
               onPress={() => router.push({ pathname: '/transaction-form', params: { id: item.id } })}
             />

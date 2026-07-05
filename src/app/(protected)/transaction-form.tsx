@@ -73,17 +73,55 @@ export default function TransactionFormScreen() {
     existing?.recurringInterval ?? 'monthly'
   );
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [confirmDiscardVisible, setConfirmDiscardVisible] = useState(false);
   const [piggyTrigger, setPiggyTrigger] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
   const amountInputRef = useRef<TextInput>(null);
 
-  const availableCategories = DEFAULT_CATEGORIES.filter((c) =>
-    type === 'income' ? c.kind !== 'expense' : c.kind !== 'income'
+  const initialFormRef = useRef({
+    type,
+    amount,
+    categoryId,
+    accountId,
+    date,
+    notes,
+    paymentMethod,
+    isRecurring,
+    recurringInterval,
+  });
+
+  const availableCategories = useMemo(
+    () => DEFAULT_CATEGORIES.filter((c) => (type === 'income' ? c.kind !== 'expense' : c.kind !== 'income')),
+    [type]
   );
 
   const parsedAmount = parseFloat(amount);
   const canSave = Number.isFinite(parsedAmount) && parsedAmount > 0;
+
+  function isFormDirty() {
+    const initial = initialFormRef.current;
+    return (
+      type !== initial.type ||
+      amount !== initial.amount ||
+      categoryId !== initial.categoryId ||
+      accountId !== initial.accountId ||
+      date !== initial.date ||
+      notes !== initial.notes ||
+      paymentMethod !== initial.paymentMethod ||
+      isRecurring !== initial.isRecurring ||
+      recurringInterval !== initial.recurringInterval
+    );
+  }
+
+  function handleCancel() {
+    tap();
+    if (isFormDirty()) {
+      setConfirmDiscardVisible(true);
+      return;
+    }
+    router.back();
+  }
 
   function handleSave(addAnother: boolean) {
     if (!canSave || isSaving) return;
@@ -137,13 +175,7 @@ export default function TransactionFormScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
           <View style={styles.header}>
-            <Pressable
-              hitSlop={8}
-              style={styles.headerButton}
-              onPress={() => {
-                tap();
-                router.back();
-              }}>
+            <Pressable hitSlop={8} style={styles.headerButton} onPress={handleCancel}>
               <ThemedText style={[styles.headerButtonText, { color: theme.brand }]}>Cancel</ThemedText>
             </Pressable>
             <ThemedText type="smallBold">{isEditing ? 'Edit transaction' : 'Add transaction'}</ThemedText>
@@ -233,6 +265,11 @@ export default function TransactionFormScreen() {
                 keyboardType="decimal-pad"
               />
             </View>
+            {!canSave ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.amountHint}>
+                Enter an amount
+              </ThemedText>
+            ) : null}
 
             {accounts.length > 1 ? (
               <View style={styles.field}>
@@ -393,6 +430,18 @@ export default function TransactionFormScreen() {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDeleteVisible(false)}
       />
+      <ConfirmDialog
+        visible={confirmDiscardVisible}
+        title="Discard changes?"
+        message="Your changes haven't been saved."
+        confirmLabel="Discard"
+        destructive
+        onConfirm={() => {
+          setConfirmDiscardVisible(false);
+          router.back();
+        }}
+        onCancel={() => setConfirmDiscardVisible(false)}
+      />
       <TransactionFeedbackPopup trigger={piggyTrigger} variant={type} />
     </ThemedView>
   );
@@ -461,6 +510,10 @@ const styles = StyleSheet.create({
     minWidth: 44,
     maxWidth: 220,
     textAlign: 'center',
+  },
+  amountHint: {
+    textAlign: 'center',
+    marginTop: -Spacing.two,
   },
   field: {
     gap: Spacing.two,

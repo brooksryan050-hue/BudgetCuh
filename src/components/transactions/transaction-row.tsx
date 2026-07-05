@@ -5,25 +5,26 @@ import { CategoryIcon } from '@/components/ui/category-icon';
 import { getCategoryById } from '@/data/categories';
 import { Spacing } from '@/constants/theme';
 import { fromISODate, formatShortDate } from '@/lib/dates';
-import { getCurrencyFormatter } from '@/lib/currency';
 import { useTheme } from '@/hooks/use-theme';
 import type { Account, Transaction } from '@/types';
 
 type TransactionRowProps = {
   transaction: Transaction;
-  currency: string;
+  /** Formats an amount with the profile's currency — built once by the parent list
+   * screen (currency is constant across a render pass) instead of each row
+   * constructing its own Intl.NumberFormat. */
+  formatAmount: (amount: number) => string;
   /** Only shown when there's more than one account — a single-account app has
    * nothing to disambiguate, so the tag would just be redundant noise. */
   accounts?: Account[];
   onPress?: () => void;
 };
 
-export function TransactionRow({ transaction, currency, accounts = [], onPress }: TransactionRowProps) {
+export function TransactionRow({ transaction, formatAmount, accounts = [], onPress }: TransactionRowProps) {
   const theme = useTheme();
   const category = getCategoryById(transaction.categoryId);
   const isIncome = transaction.type === 'income';
 
-  const formatter = getCurrencyFormatter(currency);
   const accountName =
     accounts.length > 1
       ? (accounts.find((a) => a.id === transaction.accountId) ?? accounts[0])?.name
@@ -47,7 +48,7 @@ export function TransactionRow({ transaction, currency, accounts = [], onPress }
             numberOfLines={1}
             style={{ color: isIncome ? theme.success : theme.text }}>
             {isIncome ? '+' : '-'}
-            {formatter.format(transaction.amount)}
+            {formatAmount(transaction.amount)}
           </ThemedText>
         </View>
       </View>

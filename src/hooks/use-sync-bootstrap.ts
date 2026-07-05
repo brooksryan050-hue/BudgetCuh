@@ -33,18 +33,25 @@ async function runSyncPass(userId: string) {
   state.applyRemoteSnapshot(patch);
 }
 
+/** Manually re-runs a sync pass (flush outbox + pull remote changes), e.g. for pull-to-refresh. No-ops when signed out. */
+export async function refreshSync() {
+  const session = useAuthStore.getState().session;
+  if (!session) return;
+  await runSyncPass(session.user.id);
+}
+
 /**
  * Mounted from (tabs)/_layout.tsx and onboarding/_layout.tsx — the two places a
  * session is guaranteed to exist. Runs one flush-then-pull pass per cold start (flush
  * first so this device's own not-yet-acknowledged edits are reflected in what comes
  * back down), then again on reconnect and on foregrounding.
  */
-export function useSyncBootstrap() {
+export function useSyncBootstrap(enabled: boolean = true) {
   const session = useAuthStore((s) => s.session);
   const hasRunColdStart = useRef(false);
 
   useEffect(() => {
-    if (!session) return;
+    if (!enabled || !session) return;
     const userId = session.user.id;
 
     if (!hasRunColdStart.current) {
@@ -68,5 +75,5 @@ export function useSyncBootstrap() {
       netInfoUnsubscribe();
       appStateSubscription.remove();
     };
-  }, [session]);
+  }, [session, enabled]);
 }

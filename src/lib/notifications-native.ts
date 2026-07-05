@@ -44,34 +44,6 @@ export async function ensureDailyReminderScheduled(enabled: boolean, hour: numbe
   }
 }
 
-/**
- * Schedules a single local notification for a specific future Date, in the device's
- * own local time — no push token or server round-trip needed, so it works
- * immediately in Expo Go. Returns false (never throws) if permissions aren't
- * granted or scheduling otherwise fails.
- */
-export async function scheduleOneOffNotification(title: string, body: string, date: Date): Promise<boolean> {
-  if (Platform.OS === 'web') return false;
-
-  try {
-    const { status } = await Notifications.getPermissionsAsync();
-    let finalStatus = status;
-    if (status !== 'granted') {
-      const response = await Notifications.requestPermissionsAsync();
-      finalStatus = response.status;
-    }
-    if (finalStatus !== 'granted') return false;
-
-    await Notifications.scheduleNotificationAsync({
-      content: { title, body, sound: true },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function formatReminderHour(hour: number): string {
   const normalized = ((hour % 24) + 24) % 24;
   const period = normalized >= 12 ? 'PM' : 'AM';
