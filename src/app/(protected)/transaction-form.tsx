@@ -24,7 +24,8 @@ import { Pill } from '@/components/ui/pill';
 import { DEFAULT_CATEGORIES } from '@/data/categories';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { toISODate } from '@/lib/dates';
-import { playTapSound } from '@/lib/sound';
+import { getCurrencySymbol } from '@/lib/currency';
+import { playTapSound, playTransactionAddedSound } from '@/lib/sound';
 import { useTheme } from '@/hooks/use-theme';
 import { useBudgetStore } from '@/store/budget-store';
 import type { PaymentMethod, RecurringInterval, TransactionType } from '@/types';
@@ -43,21 +44,24 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 
 export default function TransactionFormScreen() {
   const theme = useTheme();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; type?: TransactionType }>();
   const isEditing = Boolean(params.id);
 
+  const profile = useBudgetStore((s) => s.profile);
   const transactions = useBudgetStore((s) => s.transactions);
   const accounts = useBudgetStore((s) => s.accounts);
   const addTransaction = useBudgetStore((s) => s.addTransaction);
   const updateTransaction = useBudgetStore((s) => s.updateTransaction);
   const deleteTransaction = useBudgetStore((s) => s.deleteTransaction);
 
+  const currencySymbol = getCurrencySymbol(profile?.currency ?? 'USD');
+
   const existing = useMemo(
     () => transactions.find((t) => t.id === params.id),
     [transactions, params.id]
   );
 
-  const [type, setType] = useState<TransactionType>(existing?.type ?? 'expense');
+  const [type, setType] = useState<TransactionType>(existing?.type ?? (params.type === 'income' ? 'income' : 'expense'));
   const [amount, setAmount] = useState(existing ? `${existing.amount}` : '');
   const [categoryId, setCategoryId] = useState(existing?.categoryId ?? 'cat-groceries');
   const [accountId, setAccountId] = useState(existing?.accountId ?? accounts[0]?.id);
@@ -103,6 +107,7 @@ export default function TransactionFormScreen() {
 
     addTransaction(payload);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    playTransactionAddedSound();
     setPiggyTrigger((n) => n + 1);
     setIsSaving(true);
 
@@ -142,26 +147,39 @@ export default function TransactionFormScreen() {
               <ThemedText style={[styles.headerButtonText, { color: theme.brand }]}>Cancel</ThemedText>
             </Pressable>
             <ThemedText type="smallBold">{isEditing ? 'Edit transaction' : 'Add transaction'}</ThemedText>
-            <Pressable
-              hitSlop={8}
-              style={styles.headerButton}
-              disabled={isSaving || (addedCount === 0 && !canSave)}
-              onPress={() => {
-                tap();
-                if (canSave) {
-                  handleSave(false);
-                } else {
-                  router.back();
-                }
-              }}>
-              <ThemedText
-                style={[
-                  styles.headerButtonText,
-                  { color: isSaving || (addedCount === 0 && !canSave) ? theme.textSecondary : theme.brand },
-                ]}>
-                {isEditing ? 'Save' : addedCount > 0 ? 'Done' : 'Save'}
-              </ThemedText>
-            </Pressable>
+            <View style={styles.headerRightGroup}>
+              {!isEditing ? (
+                <Pressable
+                  hitSlop={8}
+                  style={styles.headerButton}
+                  onPress={() => {
+                    tap();
+                    router.push('/scan-receipt');
+                  }}>
+                  <Ionicons name="camera-outline" size={22} color={theme.brand} />
+                </Pressable>
+              ) : null}
+              <Pressable
+                hitSlop={8}
+                style={styles.headerButton}
+                disabled={isSaving || (addedCount === 0 && !canSave)}
+                onPress={() => {
+                  tap();
+                  if (canSave) {
+                    handleSave(false);
+                  } else {
+                    router.back();
+                  }
+                }}>
+                <ThemedText
+                  style={[
+                    styles.headerButtonText,
+                    { color: isSaving || (addedCount === 0 && !canSave) ? theme.textSecondary : theme.brand },
+                  ]}>
+                  {isEditing ? 'Save' : addedCount > 0 ? 'Done' : 'Save'}
+                </ThemedText>
+              </Pressable>
+            </View>
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -203,7 +221,7 @@ export default function TransactionFormScreen() {
 
             <View style={styles.amountRow}>
               <ThemedText type="title" style={styles.currencySign}>
-                $
+                {currencySymbol}
               </ThemedText>
               <TextInput
                 ref={amountInputRef}
@@ -399,6 +417,11 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerButtonText: {
     fontSize: 17,
@@ -435,9 +458,9 @@ const styles = StyleSheet.create({
   amountInput: {
     fontSize: 48,
     fontWeight: '600',
-    minWidth: 120,
+    minWidth: 44,
     maxWidth: 220,
-    textAlign: 'left',
+    textAlign: 'center',
   },
   field: {
     gap: Spacing.two,

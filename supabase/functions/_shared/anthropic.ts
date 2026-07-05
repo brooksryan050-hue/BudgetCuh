@@ -1,6 +1,6 @@
-// Anthropic client factory + a small structured-generation helper shared by both
-// generate-nudges and generate-reflections. Model is pinned to claude-sonnet-5 per
-// explicit instruction — do not substitute another model here.
+// Anthropic client factory + a small structured-generation helper shared across
+// generate-nudges, generate-reflections, and parse-receipt. Model is pinned to
+// claude-sonnet-5 per explicit instruction — do not substitute another model here.
 import Anthropic from 'npm:@anthropic-ai/sdk';
 
 let client: Anthropic | null = null;
@@ -35,7 +35,7 @@ export interface StructuredGenerationFailure {
  */
 export async function generateStructured<T>(params: {
   system: string;
-  userContent: string;
+  userContent: string | Anthropic.MessageParam['content'];
   jsonSchema: Record<string, unknown>;
   maxTokens: number;
   effort: 'low' | 'medium';
