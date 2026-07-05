@@ -15,6 +15,9 @@ import { CORS_HEADERS, handleCorsPreflight } from '../_shared/cors.ts';
 
 const MAX_SCANS_PER_HOUR = 15;
 const WINDOW_MS = 60 * 60 * 1000;
+// ~3MB decoded, generous over the client's 1600px/q0.7 JPEG output (scan-receipt.tsx) —
+// caps cost-per-call for callers that skip the client-side resize/compress step.
+const MAX_IMAGE_BASE64_LENGTH = 4_000_000;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -52,6 +55,9 @@ Deno.serve(async (req) => {
 
   if (!body.imageBase64 || typeof body.imageBase64 !== 'string') {
     return jsonResponse({ error: 'Missing imageBase64.' }, 400);
+  }
+  if (body.imageBase64.length > MAX_IMAGE_BASE64_LENGTH) {
+    return jsonResponse({ error: 'Image is too large.' }, 413);
   }
   if (body.mediaType !== 'image/jpeg' && body.mediaType !== 'image/png' && body.mediaType !== 'image/webp') {
     return jsonResponse({ error: 'mediaType must be image/jpeg, image/png, or image/webp.' }, 400);
