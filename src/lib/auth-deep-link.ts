@@ -6,7 +6,7 @@ import { setPasswordRecoveryPending } from '@/store/auth-store';
 /**
  * The password-recovery email link (see sendPasswordResetEmail in auth.ts) points
  * back at this app with the tokens in the URL fragment/query, e.g.
- * app:///reset-password#access_token=...&refresh_token=...&type=recovery. The
+ * budgetcuh:///reset-password#access_token=...&refresh_token=...&type=recovery. The
  * supabase client has detectSessionInUrl: false (that option only parses
  * window.location, meaningless for a native deep link), so the tokens have to be
  * pulled out and turned into a session by hand here.

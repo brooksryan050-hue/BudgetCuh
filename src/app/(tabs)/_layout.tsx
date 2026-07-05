@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 
+import { ThemedView } from '@/components/themed-view';
 import { useSyncBootstrap } from '@/hooks/use-sync-bootstrap';
 import { ensureDailyReminderScheduled } from '@/lib/notifications-native';
 import {
@@ -81,13 +82,21 @@ export default function TabsLayout() {
     });
   }, [hasCompletedOnboarding, pushNotificationsEnabled, expoPushToken, updateProfile]);
 
-  useSyncBootstrap();
+  const { initialSyncComplete } = useSyncBootstrap();
 
   if (!session) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
   if (!hasCompletedOnboarding) {
+    // Don't send an account to onboarding until we've confirmed there's really no
+    // remote profile for it — a freshly reinstalled app (or one that just regained a
+    // session via password recovery) starts with this flag false locally even when
+    // the account already finished onboarding elsewhere. The cold-start sync pass
+    // corrects the flag from the remote profile if one exists.
+    if (!initialSyncComplete) {
+      return <ThemedView style={{ flex: 1 }} />;
+    }
     return <Redirect href="/onboarding" />;
   }
 

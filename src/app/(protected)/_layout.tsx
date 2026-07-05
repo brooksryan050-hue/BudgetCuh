@@ -10,6 +10,8 @@ import { useAuthStore } from '@/store/auth-store';
  * check only runs for routes inside that group — see CLAUDE.md/security audit notes.
  * Group segments like `(protected)` are invisible in the URL, so every existing
  * `router.push('/transactions')`-style call site keeps working unchanged.
+ * (Deep link example above uses the `app` scheme historically; the configured
+ * scheme is now `budgetcuh` — see app.json.)
  */
 export default function ProtectedLayout() {
   const session = useAuthStore((s) => s.session);

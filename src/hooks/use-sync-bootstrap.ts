@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -45,10 +45,19 @@ export async function refreshSync() {
  * session is guaranteed to exist. Runs one flush-then-pull pass per cold start (flush
  * first so this device's own not-yet-acknowledged edits are reflected in what comes
  * back down), then again on reconnect and on foregrounding.
+ *
+ * Returns `initialSyncComplete`, which (tabs)/_layout.tsx uses to hold off deciding
+ * "this account needs onboarding" until the cold-start pull has had a chance to run —
+ * a fresh/reinstalled local store defaults `hasCompletedOnboarding` to false even for
+ * an account that already finished onboarding elsewhere (e.g. right after a password
+ * reset), and mergeRemoteSnapshot is what corrects that flag once the real profile
+ * comes down. When `enabled` is false (onboarding's own usage), there's nothing to
+ * wait for, so this reports already-complete.
  */
-export function useSyncBootstrap(enabled: boolean = true) {
+export function useSyncBootstrap(enabled: boolean = true): { initialSyncComplete: boolean } {
   const session = useAuthStore((s) => s.session);
   const hasRunColdStart = useRef(false);
+  const [initialSyncComplete, setInitialSyncComplete] = useState(!enabled);
 
   useEffect(() => {
     if (!enabled || !session) return;
@@ -56,7 +65,9 @@ export function useSyncBootstrap(enabled: boolean = true) {
 
     if (!hasRunColdStart.current) {
       hasRunColdStart.current = true;
-      runSyncPass(userId).catch(() => {});
+      runSyncPass(userId)
+        .catch(() => {})
+        .finally(() => setInitialSyncComplete(true));
     }
 
     const netInfoUnsubscribe = NetInfo.addEventListener((netState) => {
@@ -76,4 +87,6 @@ export function useSyncBootstrap(enabled: boolean = true) {
       appStateSubscription.remove();
     };
   }, [session, enabled]);
+
+  return { initialSyncComplete };
 }

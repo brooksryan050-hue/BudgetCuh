@@ -39,8 +39,8 @@ export async function signOutUser(): Promise<void> {
  * (Authentication > URL Configuration > Site URL), regardless of whether the value
  * matches the Redirect URLs allow-list. So Site URL itself has to be kept pointed at
  * wherever /reset-password should open — the Expo Go dev URL (exp://<lan-ip>:<port>/
- * --/reset-password) while testing, or the built app's own scheme (app:///reset-
- * password) once it's an installed standalone app. See auth-deep-link.ts for how
+ * --/reset-password) while testing, or the built app's own scheme (budgetcuh:///
+ * reset-password) once it's an installed standalone app. See auth-deep-link.ts for how
  * that link is caught and turned into a session. Always resolves without an error
  * for an unrecognized email (Supabase's own behavior) so this can't be used to probe
  * which emails have accounts.
