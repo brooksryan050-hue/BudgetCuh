@@ -23,6 +23,7 @@ export default function ProtectedLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="transaction-form" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

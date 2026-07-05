@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
@@ -16,6 +16,7 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { toISODate } from '@/lib/dates';
 import { playTapSound, playTransactionAddedSound } from '@/lib/sound';
 import { scanReceipt, type ParsedReceipt } from '@/lib/receipt-scan';
+import { useEntitlement } from '@/hooks/use-entitlement';
 import { useTheme } from '@/hooks/use-theme';
 import { useBudgetStore } from '@/store/budget-store';
 
@@ -69,6 +70,7 @@ export default function ScanReceiptScreen() {
   const profile = useBudgetStore((s) => s.profile);
   const accounts = useBudgetStore((s) => s.accounts);
   const addTransactions = useBudgetStore((s) => s.addTransactions);
+  const { isPro, isLoading: isEntitlementLoading } = useEntitlement();
 
   const homeCurrency = profile?.currency ?? 'USD';
 
@@ -79,6 +81,17 @@ export default function ScanReceiptScreen() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [useConverted, setUseConverted] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // AI receipt scanning is a premium feature — wait for the entitlement check to
+  // resolve (same reasoning as (tabs)/_layout.tsx's sync-gating: don't bounce a real
+  // subscriber to the paywall just because the check hasn't come back yet) before
+  // deciding whether to let them in.
+  if (isEntitlementLoading) {
+    return <ThemedView style={styles.container} />;
+  }
+  if (!isPro) {
+    return <Redirect href="/paywall" />;
+  }
 
   const date = toISODate(new Date());
   const accountId = accounts[0]?.id;
