@@ -305,9 +305,9 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 3,
   },
   biggestList: {
     gap: Spacing.two,

@@ -1,6 +1,6 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useId, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -20,7 +20,9 @@ type BarChartProps = {
 
 export function BarChart({ data, color, height = 140, highlightIndex, highlightColor, formatValue }: BarChartProps) {
   const theme = useTheme();
+  const gradId = useId();
   const barColor = color ?? theme.brand;
+  const highlight = highlightColor ?? theme.brandSecondary;
   const maxValue = Math.max(1, ...data.map((d) => d.value));
   const barWidth = 100 / data.length;
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -45,6 +47,17 @@ export function BarChart({ data, color, height = 140, highlightIndex, highlightC
         )}
       </View>
       <Svg width="100%" height={height} viewBox={`0 0 100 ${height}`} preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id={`bar-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={barColor} stopOpacity={1} />
+            <Stop offset="1" stopColor={barColor} stopOpacity={0.55} />
+          </LinearGradient>
+          <LinearGradient id={`barHi-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={highlight} stopOpacity={1} />
+            <Stop offset="1" stopColor={highlight} stopOpacity={0.6} />
+          </LinearGradient>
+        </Defs>
+        <Rect x={0} y={height - 1} width={100} height={1} fill={theme.border} />
         {data.map((datum, index) => {
           const barHeight = (datum.value / maxValue) * (height - 4);
           const columnX = index * barWidth;
@@ -68,8 +81,8 @@ export function BarChart({ data, color, height = 140, highlightIndex, highlightC
                 y={height - barHeight}
                 width={width}
                 height={Math.max(2, barHeight)}
-                rx={2}
-                fill={isHighlighted ? (highlightColor ?? theme.brandSecondary) : barColor}
+                rx={3}
+                fill={isHighlighted ? `url(#barHi-${gradId})` : `url(#bar-${gradId})`}
                 onPress={() => toggleSelected(index)}
               />
             </Fragment>
@@ -111,6 +124,7 @@ export function GroupedBarChart({
   formatValue,
 }: GroupedBarChartProps) {
   const theme = useTheme();
+  const gradId = useId();
   const barA = colorA ?? theme.success;
   const barB = colorB ?? theme.danger;
   const maxValue = Math.max(1, ...data.map((d) => Math.max(d.a, d.b)));
@@ -141,6 +155,17 @@ export function GroupedBarChart({
         )}
       </View>
       <Svg width="100%" height={height} viewBox={`0 0 100 ${height}`} preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id={`groupA-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={barA} stopOpacity={1} />
+            <Stop offset="1" stopColor={barA} stopOpacity={0.55} />
+          </LinearGradient>
+          <LinearGradient id={`groupB-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={barB} stopOpacity={1} />
+            <Stop offset="1" stopColor={barB} stopOpacity={0.55} />
+          </LinearGradient>
+        </Defs>
+        <Rect x={0} y={height - 1} width={100} height={1} fill={theme.border} />
         {data.map((datum, index) => {
           const heightA = (datum.a / maxValue) * (height - 4);
           const heightB = (datum.b / maxValue) * (height - 4);
@@ -161,8 +186,8 @@ export function GroupedBarChart({
                 y={height - heightA}
                 width={barWidth}
                 height={Math.max(2, heightA)}
-                rx={2}
-                fill={barA}
+                rx={3}
+                fill={`url(#groupA-${gradId})`}
                 onPress={() => toggleSelected(index)}
               />
               <Rect
@@ -170,8 +195,8 @@ export function GroupedBarChart({
                 y={height - heightB}
                 width={barWidth}
                 height={Math.max(2, heightB)}
-                rx={2}
-                fill={barB}
+                rx={3}
+                fill={`url(#groupB-${gradId})`}
                 onPress={() => toggleSelected(index)}
               />
             </Fragment>

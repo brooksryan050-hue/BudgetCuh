@@ -7,6 +7,26 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/**
+ * The app's one brand palette — every brand/accent color in Colors below, the Home
+ * hero gradient, and CategoryIcon's monochrome tint all derive from this single scale.
+ * Don't introduce colors outside it for anything decorative; true data-viz needs
+ * distinct hues (Trends' donut/bar charts) are the one intentional exception.
+ */
+export const Palette = {
+  50: '#effaf2',
+  100: '#d8f3df',
+  200: '#b3e7c3',
+  300: '#82d3a0',
+  400: '#4eb979',
+  500: '#2c9d5d',
+  600: '#1d7e49',
+  700: '#17653c',
+  800: '#155032',
+  900: '#12422a',
+  950: '#061910',
+} as const;
+
 export const Colors = {
   light: {
     text: '#000000',
@@ -20,8 +40,8 @@ export const Colors = {
     warningBackground: '#FDF1DC',
     danger: '#E5484D',
     dangerBackground: '#FCE6E7',
-    brand: '#3C87F7',
-    brandSecondary: '#7C5CFC',
+    brand: Palette[600],
+    brandSecondary: Palette[400],
     border: '#E4E4E9',
     overlay: 'rgba(0,0,0,0.4)',
   },
@@ -37,8 +57,8 @@ export const Colors = {
     warningBackground: '#3A2A0F',
     danger: '#FF6B6E',
     dangerBackground: '#3A1518',
-    brand: '#5C9CFF',
-    brandSecondary: '#9C85FF',
+    brand: Palette[400],
+    brandSecondary: Palette[300],
     border: '#2E3135',
     overlay: 'rgba(0,0,0,0.6)',
   },
@@ -82,12 +102,20 @@ export const Spacing = {
 } as const;
 
 export const Radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 20,
   full: 999,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+/**
+ * Home's gradient hero is dark-only by design (see useTheme's ThemeOverride) — these
+ * stops aren't part of the light/dark palettes above since they never change with the
+ * system scheme. Bright palette green at top fading through the deep shades to
+ * near-black at the bottom, where it hands off to the solid dark block below it.
+ */
+export const HomeHeroGradient = [Palette[400], Palette[700], Palette[950]] as const;

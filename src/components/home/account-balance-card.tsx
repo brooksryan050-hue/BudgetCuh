@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getCurrencyFormatter } from '@/lib/currency';
@@ -12,14 +13,20 @@ import type { Account } from '@/types';
 
 export function AccountBalanceCard() {
   const theme = useTheme();
+  const profile = useBudgetStore((s) => s.profile);
   const accounts = useBudgetStore((s) => s.accounts);
   const addAccount = useBudgetStore((s) => s.addAccount);
   const updateAccount = useBudgetStore((s) => s.updateAccount);
+  const deleteAccount = useBudgetStore((s) => s.deleteAccount);
+
+  const currency = profile?.currency ?? 'USD';
+  const formatter = getCurrencyFormatter(currency);
 
   const [containerWidth, setContainerWidth] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [balanceInput, setBalanceInput] = useState('');
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [addVisible, setAddVisible] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBalance, setNewBalance] = useState('');
@@ -37,6 +44,12 @@ export function AccountBalanceCard() {
     setEditingAccountId(null);
   }
 
+  function confirmDelete() {
+    if (editingAccountId) deleteAccount(editingAccountId);
+    setConfirmDeleteVisible(false);
+    setEditingAccountId(null);
+  }
+
   function createAccount() {
     const parsed = parseFloat(newBalance) || 0;
     if (!newName.trim()) return;
@@ -44,7 +57,7 @@ export function AccountBalanceCard() {
       name: newName.trim(),
       icon: 'wallet',
       color: theme.brand,
-      currency: accounts[0]?.currency ?? 'USD',
+      currency,
       balance: parsed,
     });
     setNewName('');
@@ -65,7 +78,6 @@ export function AccountBalanceCard() {
             setPageIndex(Math.round(e.nativeEvent.contentOffset.x / containerWidth))
           }>
           {accounts.map((account) => {
-            const formatter = getCurrencyFormatter(account.currency);
             const isNegative = account.balance < 0;
 
             return (
@@ -76,14 +88,17 @@ export function AccountBalanceCard() {
                       {account.name}
                     </ThemedText>
                     <Pressable hitSlop={8} onPress={() => openEdit(account)} style={styles.editButton}>
-                      <Ionicons name="pencil" size={14} color={theme.textSecondary} />
+                      <Ionicons name="settings-outline" size={14} color={theme.textSecondary} />
                       <ThemedText type="small" themeColor="textSecondary">
-                        Edit
+                        Manage
                       </ThemedText>
                     </Pressable>
                   </View>
                   <ThemedText
                     type="title"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.5}
                     style={[styles.balance, { color: isNegative ? theme.danger : theme.success }]}>
                     {formatter.format(account.balance)}
                   </ThemedText>
@@ -121,7 +136,7 @@ export function AccountBalanceCard() {
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <Pressable style={[styles.overlay, { backgroundColor: theme.overlay }]} onPress={() => setEditingAccountId(null)}>
             <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
-              <ThemedText type="subtitle">Edit balance</ThemedText>
+              <ThemedText type="subtitle">Manage account</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.sheetHint}>
                 There&apos;s no bank connection, so set this to match your real balance whenever you like.
               </ThemedText>
@@ -137,6 +152,15 @@ export function AccountBalanceCard() {
                   Save
                 </ThemedText>
               </Pressable>
+              {accounts.length > 1 ? (
+                <Pressable
+                  style={[styles.deleteButton, { backgroundColor: theme.dangerBackground }]}
+                  onPress={() => setConfirmDeleteVisible(true)}>
+                  <ThemedText type="smallBold" style={{ color: theme.danger }}>
+                    Delete account
+                  </ThemedText>
+                </Pressable>
+              ) : null}
             </Pressable>
           </Pressable>
         </KeyboardAvoidingView>
@@ -177,6 +201,16 @@ export function AccountBalanceCard() {
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ConfirmDialog
+        visible={confirmDeleteVisible}
+        title="Delete this account?"
+        message="This can't be undone. Its transactions won't be deleted, but will no longer be linked to it."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDeleteVisible(false)}
+      />
     </View>
   );
 }
@@ -247,5 +281,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     borderRadius: Radius.md,
     marginTop: Spacing.two,
+  },
+  deleteButton: {
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    borderRadius: Radius.md,
   },
 });

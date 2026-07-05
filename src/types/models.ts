@@ -93,6 +93,10 @@ export interface UserProfile {
   pushNotificationsEnabled: boolean;
   /** Set once registerForPushNotificationsAsync() succeeds; absent until then. */
   expoPushToken?: string;
+  /** Local device file URI from the image picker. Deliberately not synced to
+   * Supabase (see profileToRow in src/lib/sync-rows.ts) — a local file:// path is
+   * meaningless on another device, and there's no Storage bucket to upload it to. */
+  avatarUri?: string;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

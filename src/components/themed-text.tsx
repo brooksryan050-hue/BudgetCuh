@@ -47,11 +47,13 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   title: {
+    fontFamily: Fonts.serif,
     fontSize: 48,
     fontWeight: 600,
     lineHeight: 52,
   },
   subtitle: {
+    fontFamily: Fonts.serif,
     fontSize: 32,
     lineHeight: 44,
     fontWeight: 600,

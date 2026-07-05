@@ -41,3 +41,24 @@ export function getCurrencyFormatter(currencyCode: string, maximumFractionDigits
   }
   return { format: (amount: number) => formatFallback(amount, code, maximumFractionDigits) };
 }
+
+/**
+ * Just the symbol (e.g. "$", "€", "£"), for spots like the transaction-form amount
+ * input that need it standalone rather than embedded in a formatted number. Prefers
+ * Intl's own symbol for any real ISO 4217 code (covers currencies beyond our static
+ * CURRENCIES catalog), falls back to that catalog, then to the raw code itself for a
+ * completely made-up custom code.
+ */
+export function getCurrencySymbol(currencyCode: string): string {
+  const code = (currencyCode || 'USD').toUpperCase();
+  if (isValidCurrencyCode(code)) {
+    try {
+      const parts = new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).formatToParts(0);
+      const symbolPart = parts.find((part) => part.type === 'currency');
+      if (symbolPart) return symbolPart.value;
+    } catch {
+      // Fall through to the static catalog / raw-code fallback below.
+    }
+  }
+  return getCurrencyByCode(code)?.symbol ?? code;
+}

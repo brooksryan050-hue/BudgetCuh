@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 
@@ -9,9 +10,45 @@ import {
   configurePushNotificationHandler,
   registerForPushNotificationsAsync,
 } from '@/lib/push-notifications';
+import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/store/auth-store';
 import { useBudgetStore } from '@/store/budget-store';
+
+/**
+ * Outline glyph when inactive, filled glyph when active (the standard iOS tab-bar
+ * convention) plus a soft tinted pill behind the active icon — a plain same-glyph,
+ * same-shape icon for both states is what read as "basic" before.
+ */
+function TabIcon({
+  focused,
+  color,
+  size,
+  activeIcon,
+  inactiveIcon,
+}: {
+  focused: boolean;
+  color: string;
+  size: number;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  inactiveIcon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View style={[styles.iconWrap, focused && { backgroundColor: `${color}1F` }]}>
+      <Ionicons name={focused ? activeIcon : inactiveIcon} size={size} color={color} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    width: 44,
+    height: 32,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -66,35 +103,63 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon focused={focused} color={color} size={size} activeIcon="home" inactiveIcon="home-outline" />
+          ),
         }}
       />
       <Tabs.Screen
         name="budget"
         options={{
           title: 'Budget',
-          tabBarIcon: ({ color, size }) => <Ionicons name="pie-chart" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon
+              focused={focused}
+              color={color}
+              size={size}
+              activeIcon="pie-chart"
+              inactiveIcon="pie-chart-outline"
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="trends"
         options={{
           title: 'Trends',
-          tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon
+              focused={focused}
+              color={color}
+              size={size}
+              activeIcon="stats-chart"
+              inactiveIcon="stats-chart-outline"
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="challenges"
         options={{
           title: 'Challenges',
-          tabBarIcon: ({ color, size }) => <Ionicons name="flame" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon focused={focused} color={color} size={size} activeIcon="flame" inactiveIcon="flame-outline" />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon
+              focused={focused}
+              color={color}
+              size={size}
+              activeIcon="person-circle"
+              inactiveIcon="person-circle-outline"
+            />
+          ),
         }}
       />
     </Tabs>

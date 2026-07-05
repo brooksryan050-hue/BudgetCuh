@@ -1,10 +1,8 @@
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -13,6 +11,8 @@ import { AccountBalanceCard } from '@/components/home/account-balance-card';
 import { AiFeaturesSection } from '@/components/home/ai-features-section';
 import { BudgetRemainingCard } from '@/components/home/budget-remaining-card';
 import { HeroStatCard } from '@/components/home/hero-stat-card';
+import { HomeHero } from '@/components/home/home-hero';
+import { HomeQuickActions } from '@/components/home/home-quick-actions';
 import { MetricList, type MetricListItem } from '@/components/home/metric-list';
 import { MoneyHealthCard } from '@/components/home/money-health-card';
 import { SavingsGoalEmptyCard } from '@/components/home/savings-goal-empty-card';
@@ -20,6 +20,7 @@ import { SavingsGoalsPager } from '@/components/home/savings-goals-pager';
 import { InsightCard } from '@/components/insights/insight-card';
 import { NotificationCard } from '@/components/notifications/notification-card';
 import { TransactionRow } from '@/components/transactions/transaction-row';
+import { getCategoryById } from '@/data/categories';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import {
   useMonthlyTotals,
@@ -32,7 +33,7 @@ import { useBudgetUsages } from '@/hooks/use-budget-usages';
 import { useMoneyHealthScore } from '@/hooks/use-money-health-score';
 import { useInsights } from '@/hooks/use-insights';
 import { useNotificationCards } from '@/hooks/use-notification-cards';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemeOverride, useTheme } from '@/hooks/use-theme';
 import { getCurrencyFormatter } from '@/lib/currency';
 import { useBudgetStore } from '@/store/budget-store';
 
@@ -68,7 +69,26 @@ export default function HomeScreen() {
   const notifications = useNotificationCards(referenceDate);
 
   const budgetRemaining = budgetUsages.reduce((sum, usage) => sum + Math.max(0, usage.remaining), 0);
-  const recentTransactions = transactions.slice(0, 5);
+  const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const filteredTransactions = useMemo(() => {
+    if (!trimmedQuery) return transactions.slice(0, 5);
+    return transactions
+      .filter((transaction) => {
+        const categoryName = getCategoryById(transaction.categoryId).name.toLowerCase();
+        return transaction.notes?.toLowerCase().includes(trimmedQuery) || categoryName.includes(trimmedQuery);
+      })
+      .slice(0, 20);
+  }, [transactions, trimmedQuery]);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const accountsSectionY = useRef(0);
+
+  function scrollToAccounts() {
+    scrollViewRef.current?.scrollTo({ y: accountsSectionY.current, animated: true });
+  }
 
   const secondaryMetrics: MetricListItem[] = [
     { key: 'saved-week', label: 'Saved this week', value: formatter.format(weeklyTotals.saved) },
@@ -97,112 +117,134 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View>
-              <ThemedText type="small" themeColor="textSecondary">
-                Welcome back
-              </ThemedText>
-              <ThemedText type="title" style={styles.name}>
-                {profile?.name ?? 'there'}
-              </ThemedText>
-            </View>
-            <Pressable
-              style={[styles.addButton, { backgroundColor: theme.brand }]}
-              onPress={() => router.push('/transaction-form')}>
-              <Ionicons name="add" size={22} color="#ffffff" />
-            </Pressable>
-          </View>
+      {/* No 'top' edge here — HomeHero's gradient needs to extend behind the status
+          bar/notch instead of stopping below it, and handles its own top inset internally. */}
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <HomeHero
+            balanceLabel="Total balance"
+            balanceValue={formatter.format(totalBalance)}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            onStatsPress={() => router.push('/(tabs)/trends')}
+            onLedgerPress={() => router.push('/transactions')}
+            onAccountsPress={scrollToAccounts}
+          />
 
-          <AccountBalanceCard />
+          <ThemeOverride scheme="dark">
+            <ThemedView style={styles.darkBlockOuter}>
+              <View style={styles.darkBlockInner}>
+                <HomeQuickActions />
 
-          <View style={styles.heroRow}>
-            <HeroStatCard
-              label="Income this month"
-              value={formatter.format(monthlyTotals.income)}
-              icon="arrow-down-circle"
-              tintColor={theme.success}
-              tintBackground={theme.successBackground}
-            />
-            <HeroStatCard
-              label="Spent this month"
-              value={formatter.format(monthlyTotals.expenses)}
-              icon="arrow-up-circle"
-              tintColor={theme.danger}
-              tintBackground={theme.dangerBackground}
-            />
-          </View>
-
-          <MetricList items={secondaryMetrics} />
-
-          <BudgetRemainingCard value={formatter.format(budgetRemaining)} />
-
-          <MoneyHealthCard breakdown={healthScore} />
-
-          <AiFeaturesSection />
-
-          <View>
-            <SectionHeader
-              title="Savings goals"
-              actionLabel="View all"
-              onActionPress={() => router.push('/savings-goals')}
-            />
-            {savingsGoals.length > 0 ? (
-              <SavingsGoalsPager goals={savingsGoals} currency={currency} />
-            ) : (
-              <SavingsGoalEmptyCard />
-            )}
-          </View>
-
-          {notifications.length > 0 ? (
-            <View>
-              <SectionHeader title="Updates" />
-              <View style={styles.notificationList}>
-                {notifications.slice(0, 3).map((card) => (
-                  <NotificationCard
-                    key={card.id}
-                    card={card}
-                    onPress={() => markNotificationRead(card.id)}
-                    onDismiss={() => dismissNotification(card.id)}
+                <View>
+                  <SectionHeader
+                    title={trimmedQuery ? 'Search results' : 'Recent transactions'}
+                    actionLabel={trimmedQuery ? undefined : 'See all'}
+                    onActionPress={trimmedQuery ? undefined : () => router.push('/transactions')}
                   />
-                ))}
+                  {filteredTransactions.length === 0 ? (
+                    <EmptyState
+                      icon="receipt-outline"
+                      title={trimmedQuery ? 'No matching transactions' : 'No transactions yet'}
+                    />
+                  ) : (
+                    <Card style={styles.transactionsCard}>
+                      {filteredTransactions.map((transaction) => (
+                        <TransactionRow
+                          key={transaction.id}
+                          transaction={transaction}
+                          currency={currency}
+                          accounts={accounts}
+                          onPress={() =>
+                            router.push({ pathname: '/transaction-form', params: { id: transaction.id } })
+                          }
+                        />
+                      ))}
+                    </Card>
+                  )}
+                </View>
               </View>
-            </View>
-          ) : null}
+            </ThemedView>
+          </ThemeOverride>
 
-          {insights.length > 0 ? (
+          <View
+            style={styles.innerContent}
+            onLayout={(event) => {
+              accountsSectionY.current = event.nativeEvent.layout.y;
+            }}>
+            <AccountBalanceCard />
+
+            <View style={styles.heroRow}>
+              <HeroStatCard
+                label="Income this month"
+                value={formatter.format(monthlyTotals.income)}
+                icon="arrow-down-circle"
+                tintColor={theme.success}
+                tintBackground={theme.successBackground}
+              />
+              <HeroStatCard
+                label="Spent this month"
+                value={formatter.format(monthlyTotals.expenses)}
+                icon="arrow-up-circle"
+                tintColor={theme.danger}
+                tintBackground={theme.dangerBackground}
+              />
+            </View>
+
+            <MetricList items={secondaryMetrics} />
+
+            <BudgetRemainingCard value={formatter.format(budgetRemaining)} />
+
+            <MoneyHealthCard breakdown={healthScore} />
+
+            <AiFeaturesSection />
+
             <View>
-              <SectionHeader title="Insights" actionLabel="See all" onActionPress={() => router.push('/(tabs)/trends')} />
-              <View style={styles.insightList}>
-                {insights.slice(0, 3).map((insight) => (
-                  <InsightCard key={insight.id} insight={insight} />
-                ))}
-              </View>
+              <SectionHeader
+                title="Savings goals"
+                actionLabel="View all"
+                onActionPress={() => router.push('/savings-goals')}
+              />
+              {savingsGoals.length > 0 ? (
+                <SavingsGoalsPager goals={savingsGoals} currency={currency} />
+              ) : (
+                <SavingsGoalEmptyCard />
+              )}
             </View>
-          ) : null}
 
-          <View>
-            <SectionHeader
-              title="Recent transactions"
-              actionLabel="See all"
-              onActionPress={() => router.push('/transactions')}
-            />
-            {recentTransactions.length === 0 ? (
-              <EmptyState icon="receipt-outline" title="No transactions yet" />
-            ) : (
-              <Card style={styles.transactionsCard}>
-                {recentTransactions.map((transaction) => (
-                  <TransactionRow
-                    key={transaction.id}
-                    transaction={transaction}
-                    currency={currency}
-                    accounts={accounts}
-                    onPress={() => router.push({ pathname: '/transaction-form', params: { id: transaction.id } })}
-                  />
-                ))}
-              </Card>
-            )}
+            {notifications.length > 0 ? (
+              <View>
+                <SectionHeader title="Updates" />
+                <View style={styles.notificationList}>
+                  {notifications.slice(0, 3).map((card) => (
+                    <NotificationCard
+                      key={card.id}
+                      card={card}
+                      onPress={() => markNotificationRead(card.id)}
+                      onDismiss={() => dismissNotification(card.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            {insights.length > 0 ? (
+              <View>
+                <SectionHeader
+                  title="Insights"
+                  actionLabel="See all"
+                  onActionPress={() => router.push('/(tabs)/trends')}
+                />
+                <View style={styles.insightList}>
+                  {insights.slice(0, 3).map((insight) => (
+                    <InsightCard key={insight.id} insight={insight} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -214,29 +256,27 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, width: '100%' },
   scrollContent: {
+    paddingBottom: Spacing.six,
+    gap: Spacing.four,
+  },
+  darkBlockOuter: {
+    width: '100%',
+  },
+  darkBlockInner: {
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.six,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.four,
     gap: Spacing.four,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  name: {
-    fontSize: 30,
-    lineHeight: 36,
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
+  innerContent: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.four,
   },
   heroRow: {
     flexDirection: 'row',
