@@ -57,7 +57,8 @@
           "cameraPermission": "Allow BudgetCuh to access your camera so you can scan a receipt.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
