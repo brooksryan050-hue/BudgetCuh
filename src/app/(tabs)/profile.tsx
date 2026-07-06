@@ -18,6 +18,7 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { signOutUser } from '@/lib/auth';
 import { ensureDailyReminderScheduled, formatReminderHour } from '@/lib/notifications-native';
 import { registerForPushNotificationsAsync } from '@/lib/push-notifications';
+import { useEntitlement } from '@/hooks/use-entitlement';
 import { useLevel } from '@/hooks/use-level';
 import { useStreaks } from '@/hooks/use-streaks';
 import { useTheme } from '@/hooks/use-theme';
@@ -32,6 +33,7 @@ export default function ProfileScreen() {
   const badges = useBudgetStore((s) => s.badges);
   const updateProfile = useBudgetStore((s) => s.updateProfile);
   const { level, points } = useLevel();
+  const { isPro } = useEntitlement();
   const streaks = useStreaks(new Date());
   const character = getLevelCharacter(level);
   const currencySymbol = getCurrencyByCode(profile?.currency ?? 'USD')?.symbol ?? profile?.currency ?? '$';
@@ -130,7 +132,18 @@ export default function ProfileScreen() {
               <ThemedText style={styles.avatarEmoji}>{character.emoji}</ThemedText>
             </View>
             <View style={styles.profileText}>
-              <ThemedText type="subtitle">{profile?.name}</ThemedText>
+              <View style={styles.nameRow}>
+                <ThemedText type="subtitle" numberOfLines={1} style={styles.nameText}>
+                  {profile?.name}
+                </ThemedText>
+                {isPro ? (
+                  <View style={[styles.proBadge, { backgroundColor: theme.brand }]}>
+                    <ThemedText type="smallBold" style={styles.proBadgeText}>
+                      PRO
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
               <ThemedText type="small" themeColor="textSecondary">
                 {character.name} · Level {level} · {points} points
               </ThemedText>
@@ -396,7 +409,25 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   profileText: {
+    flexShrink: 1,
     gap: 2,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  nameText: {
+    flexShrink: 1,
+  },
+  proBadge: {
+    flexShrink: 0,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+  },
+  proBadgeText: {
+    color: '#ffffff',
   },
   notificationLabel: {
     flex: 1,
