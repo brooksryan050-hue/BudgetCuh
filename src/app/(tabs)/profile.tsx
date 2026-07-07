@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,7 +15,7 @@ import { BadgeCard } from '@/components/challenges/badge-card';
 import { getCurrencyByCode } from '@/data/currencies';
 import { getLevelCharacter } from '@/data/level-characters';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
-import { signOutUser } from '@/lib/auth';
+import { deleteAccountPermanently, signOutUser } from '@/lib/auth';
 import { ensureDailyReminderScheduled, formatReminderHour } from '@/lib/notifications-native';
 import { registerForPushNotificationsAsync } from '@/lib/push-notifications';
 import { useEntitlement } from '@/hooks/use-entitlement';
@@ -43,6 +43,7 @@ export default function ProfileScreen() {
   const [incomeError, setIncomeError] = useState<string | null>(null);
   const [requestingPush, setRequestingPush] = useState(false);
   const [pushSetupError, setPushSetupError] = useState<string | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const [badgeGridWidth, setBadgeGridWidth] = useState(0);
   const badgeColumns = badgeGridWidth > 0 ? Math.max(1, Math.floor((badgeGridWidth + BADGE_GAP) / (BADGE_MIN_WIDTH + BADGE_GAP))) : 0;
@@ -114,6 +115,24 @@ export default function ProfileScreen() {
       // say why instead of silently doing nothing.
       setPushSetupError("Couldn't turn this on, check notification permissions, or ask your developer to finish push setup.");
     }
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account and all your data — transactions, budgets, goals, and badges. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: deleteAccount },
+      ]
+    );
+  }
+
+  async function deleteAccount() {
+    setIsDeletingAccount(true);
+    const error = await deleteAccountPermanently();
+    setIsDeletingAccount(false);
+    if (error) Alert.alert('Something went wrong', error);
   }
 
   const earnedBadges = useMemo(() => badges.filter((b) => b.earnedAt !== null), [badges]);
@@ -316,6 +335,15 @@ export default function ProfileScreen() {
               Sign out
             </ThemedText>
           </Pressable>
+
+          <Pressable
+            style={[styles.resetButton, { backgroundColor: theme.backgroundElement }, isDeletingAccount && styles.disabled]}
+            disabled={isDeletingAccount}
+            onPress={confirmDeleteAccount}>
+            <ThemedText type="smallBold" themeColor="danger">
+              {isDeletingAccount ? 'Deleting…' : 'Delete account'}
+            </ThemedText>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
 
@@ -488,6 +516,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.three,
     borderRadius: Radius.md,
+  },
+  disabled: {
+    opacity: 0.5,
   },
   overlay: {
     flex: 1,

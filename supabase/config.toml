@@ -429,6 +429,10 @@ verify_jwt = true
 [functions.parse-receipt]
 verify_jwt = true
 
+# Client-callable account deletion — same client-JWT auth model as get-or-generate-nudge.
+[functions.delete-account]
+verify_jwt = true
+
 # pg-delta is the schema diff engine for db diff / db pull / db remote commit.
 # Set enabled = false to fall back to the legacy migra engine.
 [experimental.pgdelta]

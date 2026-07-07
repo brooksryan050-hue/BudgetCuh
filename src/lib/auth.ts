@@ -33,6 +33,21 @@ export async function signOutUser(): Promise<void> {
 }
 
 /**
+ * Permanently deletes the signed-in user's account: calls the delete-account Edge
+ * Function (which removes the auth.users row — every other table cascades from
+ * there, see migrations/0001_init.sql), then clears the local session and cache the
+ * same way signOutUser does. Required for App Store Guideline 5.1.1(v).
+ */
+export async function deleteAccountPermanently(): Promise<string | null> {
+  const { error } = await supabase.functions.invoke('delete-account');
+  if (error) return GENERIC_ERROR_MESSAGE;
+
+  await supabase.auth.signOut();
+  useBudgetStore.getState().resetAllData();
+  return null;
+}
+
+/**
  * Sends a recovery-link email. Deliberately does NOT pass a `redirectTo` here —
  * verified against this project that Supabase silently ignores a per-request
  * redirectTo override and always falls back to the project's configured Site URL
