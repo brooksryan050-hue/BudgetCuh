@@ -85,7 +85,7 @@ export default function PaywallScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.header}>
           <View style={styles.headerButton} />
-          <ThemedText type="smallBold">BudgetCuh Premium</ThemedText>
+          <ThemedText type="smallBold">BudgetCuh Pro</ThemedText>
           <Pressable
             hitSlop={8}
             style={styles.headerButton}
