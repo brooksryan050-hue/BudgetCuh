@@ -9,18 +9,19 @@
 // that support account creation must also support in-app account deletion.
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { getAuthenticatedUserId } from '../_shared/user-auth.ts';
-import { CORS_HEADERS, handleCorsPreflight } from '../_shared/cors.ts';
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-  });
-}
+import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
   const preflight = handleCorsPreflight(req);
   if (preflight) return preflight;
+
+  const cors = corsHeaders(req);
+  function jsonResponse(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...cors },
+    });
+  }
 
   let userId: string | null;
   try {

@@ -11,20 +11,13 @@
 import { getAdminClient } from '../_shared/supabase-admin.ts';
 import { getAuthenticatedUserId } from '../_shared/user-auth.ts';
 import { parseReceipt, type ReceiptCategoryInput } from '../_shared/receipt-generation.ts';
-import { CORS_HEADERS, handleCorsPreflight } from '../_shared/cors.ts';
+import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 
 const MAX_SCANS_PER_HOUR = 15;
 const WINDOW_MS = 60 * 60 * 1000;
 // ~3MB decoded, generous over the client's 1600px/q0.7 JPEG output (scan-receipt.tsx) —
 // caps cost-per-call for callers that skip the client-side resize/compress step.
 const MAX_IMAGE_BASE64_LENGTH = 4_000_000;
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-  });
-}
 
 interface RequestBody {
   imageBase64?: string;
@@ -36,6 +29,14 @@ interface RequestBody {
 Deno.serve(async (req) => {
   const preflight = handleCorsPreflight(req);
   if (preflight) return preflight;
+
+  const cors = corsHeaders(req);
+  function jsonResponse(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...cors },
+    });
+  }
 
   let userId: string | null;
   try {
