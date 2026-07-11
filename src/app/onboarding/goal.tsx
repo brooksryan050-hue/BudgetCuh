@@ -50,7 +50,7 @@ export default function GoalScreen() {
         balance: parseFloat(draft.startingBalance) || 0,
       }
     );
-    router.replace('/(tabs)');
+    router.replace('/onboarding-paywall');
   }
 
   return (

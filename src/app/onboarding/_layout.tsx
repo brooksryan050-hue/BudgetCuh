@@ -44,6 +44,14 @@ export function useOnboardingDraft() {
 export default function OnboardingLayout() {
   const session = useAuthStore((s) => s.session);
   const hasCompletedOnboarding = useBudgetStore((s) => s.hasCompletedOnboarding);
+  // Frozen at mount on purpose: goal.tsx flips hasCompletedOnboarding to true and then
+  // navigates itself (to the post-onboarding paywall) while still mounted under this
+  // layout. If this guard reacted to the live value, that store update would force an
+  // immediate redirect to (tabs) here, racing goal.tsx's own navigation and winning
+  // before it can land. Using the mount-time snapshot means this only redirects a
+  // genuinely returning user who deep-links into /onboarding/* after already finishing
+  // it in a prior session — not someone finishing it live, right now.
+  const [wasAlreadyComplete] = useState(hasCompletedOnboarding);
   const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
 
   function updateDraft(patch: Partial<OnboardingDraft>) {
@@ -58,7 +66,7 @@ export default function OnboardingLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
-  if (hasCompletedOnboarding) {
+  if (wasAlreadyComplete) {
     return <Redirect href="/(tabs)" />;
   }
 

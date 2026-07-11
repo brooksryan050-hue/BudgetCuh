@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
+import { OnboardingProgressDots } from '@/components/onboarding/onboarding-progress-dots';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
@@ -58,17 +59,7 @@ export function OnboardingScaffold({
             ) : (
               <View style={{ width: 24 }} />
             )}
-            <View style={styles.dots}>
-              {Array.from({ length: totalSteps }, (_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    { backgroundColor: i <= step ? theme.brand : theme.backgroundSelected },
-                  ]}
-                />
-              ))}
-            </View>
+            <OnboardingProgressDots step={step} totalSteps={totalSteps} />
             <View style={{ width: 24 }} />
           </View>
 
@@ -128,17 +119,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  dots: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.one,
-  },
-  dot: {
-    width: 24,
-    height: 6,
-    borderRadius: Radius.full,
   },
   body: {
     flex: 1,
