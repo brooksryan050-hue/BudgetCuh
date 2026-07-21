@@ -6,12 +6,14 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
+import { PaywallLegalFooter } from '@/components/paywall/legal-footer';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useTrialEligibility } from '@/hooks/use-trial-eligibility';
 import {
+  describeSubscriptionDuration,
   getCurrentOffering,
   purchasePackageAndCheckEntitlement,
   restorePurchasesAndCheckEntitlement,
@@ -129,6 +131,8 @@ export default function PaywallScreen() {
               {packages.map((pkg) => {
                 const selected = pkg.identifier === selectedId;
                 const trial = trialByProductId[pkg.identifier];
+                const duration = describeSubscriptionDuration(pkg);
+                const priceText = trial ? `${trial.label} ${pkg.product.priceString}` : pkg.product.priceString;
                 return (
                   <Pressable
                     key={pkg.identifier}
@@ -142,9 +146,11 @@ export default function PaywallScreen() {
                       setSelectedId(pkg.identifier);
                     }}>
                     <View style={styles.packageInfo}>
-                      <ThemedText type="smallBold">{pkg.product.title}</ThemedText>
+                      <ThemedText type="smallBold">
+                        {duration ? `${pkg.product.title} · ${duration}` : pkg.product.title}
+                      </ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
-                        {trial ? `${trial.label} ${pkg.product.priceString}` : pkg.product.priceString}
+                        {priceText}
                       </ThemedText>
                     </View>
                     <Ionicons
@@ -182,6 +188,8 @@ export default function PaywallScreen() {
               Restore purchases
             </ThemedText>
           </Pressable>
+
+          <PaywallLegalFooter />
         </View>
       </SafeAreaView>
     </ThemedView>

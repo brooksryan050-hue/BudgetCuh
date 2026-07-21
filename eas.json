@@ -21,7 +21,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "blankblankbim@gmail.com"
+        "appleId": "blankblankbim@gmail.com",
+        "ascAppId": "6788066490"
       }
     }
   }

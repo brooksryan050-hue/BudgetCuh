@@ -11,6 +11,7 @@ import {
   type PeriodType,
   type ReflectionProfileInput,
 } from '../_shared/reflection-generation.ts';
+import { getDailyGenerationCap } from '../_shared/daily-budget.ts';
 
 const PROFILE_PAGE_SIZE = 200;
 const CONCURRENCY = 5;
@@ -85,10 +86,17 @@ Deno.serve(async (req) => {
   let succeeded = 0;
   let failed = 0;
   let page = 0;
+  let capped = false;
   const errors: string[] = [];
+  const dailyCap = getDailyGenerationCap('MAX_DAILY_REFLECTION_GENERATIONS');
 
   // deno-lint-ignore no-constant-condition
   while (true) {
+    if (succeeded + failed >= dailyCap) {
+      capped = true;
+      break;
+    }
+
     const { data: profiles, error } = await admin
       .from('profiles')
       .select('id, name, currency')
@@ -96,34 +104,47 @@ Deno.serve(async (req) => {
 
     if (error || !profiles || profiles.length === 0) break;
 
+    const remaining = dailyCap - (succeeded + failed);
+    const batch = profiles.slice(0, remaining) as ReflectionProfileInput[];
+
     const {
       succeeded: s,
       failed: f,
       errors: e,
-    } = await processInChunks(profiles as ReflectionProfileInput[], CONCURRENCY, (profile) =>
-      processUser(profile, periodType, current, prior)
-    );
+    } = await processInChunks(batch, CONCURRENCY, (profile) => processUser(profile, periodType, current, prior));
     succeeded += s;
     failed += f;
     if (errors.length < MAX_LOGGED_ERRORS) errors.push(...e.slice(0, MAX_LOGGED_ERRORS - errors.length));
 
+    if (batch.length < profiles.length) {
+      capped = true;
+      break;
+    }
     if (profiles.length < PROFILE_PAGE_SIZE) break;
     page += 1;
   }
 
+  if (capped) {
+    console.warn(`generate-reflections: hit daily cap of ${dailyCap}, stopping early`);
+  }
+
   if (run) {
+    const errorSummary: Record<string, unknown> = {};
+    if (errors.length > 0) errorSummary.sample = errors;
+    if (capped) errorSummary.capped = true;
+
     await admin
       .from('ai_generation_runs')
       .update({
         finished_at: new Date().toISOString(),
         users_processed: succeeded + failed,
         users_failed: failed,
-        error_summary: errors.length > 0 ? { sample: errors } : null,
+        error_summary: Object.keys(errorSummary).length > 0 ? errorSummary : null,
       })
       .eq('id', run.id);
   }
 
-  return new Response(JSON.stringify({ periodType, processed: succeeded + failed, succeeded, failed }), {
+  return new Response(JSON.stringify({ periodType, processed: succeeded + failed, succeeded, failed, capped }), {
     headers: { 'Content-Type': 'application/json' },
   });
 });
